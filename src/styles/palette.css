@@ -1,0 +1,93 @@
+:root {
+  --font-main: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
+  --c-bg-1: #dad7cd;
+  --c-bg-2: #ccd5c0;
+  --c-bg-3: #a3b18a;
+  --c-surface: #f6f4ef;
+  --c-surface-soft: #ece8de;
+  --c-border: #b9c2a7;
+
+  --c-text: #344e41;
+  --c-text-muted: #4f6b5e;
+
+  --c-primary: #588157;
+  --c-primary-hover: #3a5a40;
+  --c-secondary: #344e41;
+  --c-secondary-hover: #2b3f35;
+  --c-cancel: #a3b18a;
+  --c-cancel-hover: #8d9e73;
+  --c-cancel-text: #213127;
+
+  --c-success-bg: #dbe9d4;
+  --c-success-text: #2d4a36;
+  --c-success-border: #a9c09e;
+
+  --c-error-bg: #f2d6cf;
+  --c-error-text: #6c2b22;
+  --c-error-border: #ddb5ab;
+
+  --c-focus: #3a5a40;
+}
+
+:root[data-theme="dark"] {
+  --c-bg-1: #151d19;
+  --c-bg-2: #1c2822;
+  --c-bg-3: #23332b;
+  --c-surface: #213127;
+  --c-surface-soft: #2b3f35;
+  --c-border: #45664d;
+
+  --c-text: #e7eadf;
+  --c-text-muted: #bac7b2;
+
+  --c-primary: #588157;
+  --c-primary-hover: #6d9a6c;
+  --c-secondary: #3a5a40;
+  --c-secondary-hover: #4d7754;
+  --c-cancel: #344e41;
+  --c-cancel-hover: #3f614f;
+  --c-cancel-text: #e7eadf;
+
+  --c-success-bg: #2e4936;
+  --c-success-text: #d8e9d5;
+  --c-success-border: #4f7859;
+
+  --c-error-bg: #5e332d;
+  --c-error-text: #ffd9d1;
+  --c-error-border: #8b4d45;
+
+  --c-focus: #a3b18a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-bg-1: #151d19;
+    --c-bg-2: #1c2822;
+    --c-bg-3: #23332b;
+    --c-surface: #213127;
+    --c-surface-soft: #2b3f35;
+    --c-border: #45664d;
+
+    --c-text: #e7eadf;
+    --c-text-muted: #bac7b2;
+
+    --c-primary: #588157;
+    --c-primary-hover: #6d9a6c;
+    --c-secondary: #3a5a40;
+    --c-secondary-hover: #4d7754;
+    --c-cancel: #344e41;
+    --c-cancel-hover: #3f614f;
+    --c-cancel-text: #e7eadf;
+
+    --c-success-bg: #2e4936;
+    --c-success-text: #d8e9d5;
+    --c-success-border: #4f7859;
+
+    --c-error-bg: #5e332d;
+    --c-error-text: #ffd9d1;
+    --c-error-border: #8b4d45;
+
+    --c-focus: #a3b18a;
+  }
+}
