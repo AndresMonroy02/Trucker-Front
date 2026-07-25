@@ -7,9 +7,16 @@ import DashboardPage from "./pages/auth/DashboardPage";
 import DriverDashboardPage from "./pages/driver/DriverDashboardPage";
 import GeneralDashboardPage from "./pages/auth/GeneralDashboardPage";
 import LoginPage from "./pages/auth/LoginPage";
+import OwnerDriversPage from "./pages/owner/OwnerDriversPage";
+import OwnerExpensesPage from "./pages/owner/OwnerExpensesPage";
 import ProfilePage from "./pages/auth/ProfilePage";
 import OwnerDashboardPage from "./pages/auth/OwnerDashboardPage";
+import OwnerManifestDetailPage from "./pages/owner/OwnerManifestDetailPage";
+import OwnerVehiclesPage from "./pages/owner/OwnerVehiclesPage";
+import OwnerRoutesPage from "./pages/owner/OwnerRoutesPage";
+import OwnerSuppliersPage from "./pages/owner/OwnerSuppliersPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import logo from "./assets/trucker_no_text.png";
 import { getDashboardPathByRole } from "./utils/roleRouting";
 
 const EMPTY_REGISTER = {
@@ -99,9 +106,10 @@ export default function App() {
       <section className={`card ${isDashboardRoute ? "card-dashboard" : ""}`}>
         {!isDashboardRoute ? (
           <div className="card-header">
-            <div>
+            <div className="auth-brand">
+              <img className="auth-brand-logo" src={logo} alt="Trucker" />
               <h1>Trucker</h1>
-              <p className="hint">Accede con tu cuenta y gestiona tu perfil de transporte.</p>
+              <p className="hint">Accede con tu cuenta y gestiona tu operacion de transporte con una vista clara y centralizada.</p>
             </div>
             <button className="theme-toggle" onClick={toggleTheme} type="button">
               Tema: {theme === "light" ? "Claro" : "Oscuro"}
@@ -161,6 +169,78 @@ export default function App() {
                 theme={theme}
                 onToggleTheme={toggleTheme}
                 setStatus={setStatus}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/owner/vehicles"
+            element={
+              <OwnerVehiclesPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/owner/drivers"
+            element={
+              <OwnerDriversPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/owner/routes"
+            element={
+              <OwnerRoutesPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/owner/routes/:manifestId"
+            element={
+              <OwnerManifestDetailPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/owner/suppliers"
+            element={
+              <OwnerSuppliersPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/owner/expenses"
+            element={
+              <OwnerExpensesPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
                 onLogout={logout}
               />
             }
