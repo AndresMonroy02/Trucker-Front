@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { api, setAuthToken } from "./api";
 import AdminDashboardPage from "./pages/owner/AdminDashboardPage";
@@ -46,6 +46,7 @@ function getInitialTheme() {
 
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [registerForm, setRegisterForm] = useState(EMPTY_REGISTER);
   const [loginForm, setLoginForm] = useState(EMPTY_LOGIN);
   const [registerErrors, setRegisterErrors] = useState({});
@@ -84,6 +85,14 @@ export default function App() {
     }
   }, [token]);
 
+  useEffect(() => {
+    if (!status.success) return undefined;
+    const timer = setTimeout(() => {
+      setStatus((prev) => ({ ...prev, success: "" }));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [status.success]);
+
   async function fetchProfile() {
     try {
       const { data } = await api.get("/users/me");
@@ -103,6 +112,7 @@ export default function App() {
   function logout() {
     setToken("");
     setStatus({ success: "Sesion cerrada.", error: "" });
+    navigate("/login", { replace: true });
   }
 
   function toggleTheme() {
