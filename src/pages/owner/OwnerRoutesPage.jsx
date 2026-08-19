@@ -67,6 +67,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [manifestForm, setManifestForm] = useState(EMPTY_MANIFEST_FORM);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
+  const [expenseManifestLocked, setExpenseManifestLocked] = useState(false);
   const [currentManifestPage, setCurrentManifestPage] = useState(1);
 
   useEffect(() => {
@@ -183,11 +184,13 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   function openExpenseModal(manifestId) {
     setExpenseForm({ ...EMPTY_EXPENSE_FORM, manifest_id: String(manifestId) });
+    setExpenseManifestLocked(true);
     setExpenseModalOpen(true);
   }
 
   function closeExpenseModal() {
     setExpenseModalOpen(false);
+    setExpenseManifestLocked(false);
   }
 
   function handleManifestInput(event) {
@@ -384,6 +387,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         onChange={handleExpenseInput}
         onSubmit={submitExpense}
         onClose={closeExpenseModal}
+        lockManifest={expenseManifestLocked}
       />
     </DashboardShell>
   );

@@ -1,4 +1,5 @@
 import Button from "../Button";
+import MoneyInput from "../MoneyInput";
 
 export default function ExpenseFormModal({
   isOpen,
@@ -9,6 +10,7 @@ export default function ExpenseFormModal({
   onChange,
   onSubmit,
   onClose,
+  lockManifest = false,
 }) {
   if (!isOpen) return null;
 
@@ -30,6 +32,7 @@ export default function ExpenseFormModal({
               name="manifest_id"
               value={form.manifest_id}
               onChange={onChange}
+              disabled={lockManifest}
               required
             >
               <option value="">Selecciona un manifiesto</option>
@@ -67,16 +70,7 @@ export default function ExpenseFormModal({
             </div>
             <div className="field">
               <label htmlFor="amount">Monto</label>
-              <input
-                id="amount"
-                name="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={form.amount}
-                onChange={onChange}
-                required
-              />
+              <MoneyInput id="amount" name="amount" value={form.amount} onChange={onChange} required />
             </div>
           </div>
 

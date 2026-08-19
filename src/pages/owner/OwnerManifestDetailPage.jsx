@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
+import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import TablePagination from "../../components/TablePagination";
 import { getDashboardPathByRole } from "../../utils/roleRouting";
 
@@ -28,6 +29,20 @@ function formatDate(value) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
 }
 
+const EMPTY_EXPENSE_FORM = {
+  manifest_id: "",
+  supplier_id: "",
+  expense_type_id: "",
+  description: "",
+  amount: "",
+  expense_date: "",
+  payment_method: "",
+  reference_code: "",
+  location: "",
+  is_paid: true,
+  notes: "",
+};
+
 export default function OwnerManifestDetailPage({ token, me, onLogout, theme, onToggleTheme }) {
   const { manifestId } = useParams();
   const navigate = useNavigate();
@@ -35,6 +50,10 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
   const [expenseTypeSummary, setExpenseTypeSummary] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [suppliers, setSuppliers] = useState([]);
+  const [expenseTypes, setExpenseTypes] = useState([]);
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
 
   const totalPages = Math.max(1, Math.ceil(totalExpenses / PAGE_SIZE));
   const expenses = manifestDetail?.expenses ?? [];
@@ -70,6 +89,11 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
     fetchExpenseTypeSummary(manifestId);
   }, [manifestId]);
 
+  useEffect(() => {
+    fetchSuppliers();
+    fetchExpenseTypes();
+  }, []);
+
   async function fetchManifestDetail(id, page) {
     try {
       const { data, headers } = await api.get(`/owner/manifests/${id}`, {
@@ -91,6 +115,67 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       setExpenseTypeSummary(data);
     } catch (err) {
       toast.error(err.response?.data?.detail || "No fue posible cargar el resumen de gastos por tipo.");
+    }
+  }
+
+  async function fetchSuppliers() {
+    try {
+      const { data } = await api.get("/owner/suppliers", {
+        params: { page: 1, page_size: 100 },
+      });
+      setSuppliers(data);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible cargar proveedores.");
+    }
+  }
+
+  async function fetchExpenseTypes() {
+    try {
+      const { data } = await api.get("/owner/expense-types");
+      setExpenseTypes(data);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible cargar los tipos de gasto.");
+    }
+  }
+
+  function openExpenseModal() {
+    setExpenseForm({ ...EMPTY_EXPENSE_FORM, manifest_id: String(manifestId) });
+    setExpenseModalOpen(true);
+  }
+
+  function closeExpenseModal() {
+    setExpenseModalOpen(false);
+  }
+
+  function handleExpenseInput(event) {
+    const { name, value, type, checked } = event.target;
+    setExpenseForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  async function submitExpense(event) {
+    event.preventDefault();
+
+    const payload = {
+      supplier_id: expenseForm.supplier_id ? Number(expenseForm.supplier_id) : null,
+      expense_type_id: Number(expenseForm.expense_type_id),
+      description: expenseForm.description,
+      amount: Number(expenseForm.amount),
+      expense_date: expenseForm.expense_date,
+      payment_method: expenseForm.payment_method || null,
+      reference_code: expenseForm.reference_code || null,
+      location: expenseForm.location || null,
+      is_paid: expenseForm.is_paid,
+      notes: expenseForm.notes || null,
+    };
+
+    try {
+      await api.post(`/owner/manifests/${manifestId}/expenses`, payload);
+      toast.success("Gasto registrado correctamente.");
+      closeExpenseModal();
+      await fetchManifestDetail(manifestId, currentPage);
+      await fetchExpenseTypeSummary(manifestId);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible registrar el gasto.");
     }
   }
 
@@ -183,6 +268,9 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                   <h3>Gastos del viaje</h3>
                   <p className="hint">Total registrados: {totalExpenses}</p>
                 </div>
+                <Button type="button" onClick={openExpenseModal}>
+                  Agregar gasto
+                </Button>
               </div>
 
               <div className="owner-table-wrap">
@@ -291,6 +379,18 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       ) : (
         <p className="hint">Cargando detalle del manifiesto...</p>
       )}
+
+      <ExpenseFormModal
+        isOpen={expenseModalOpen}
+        form={expenseForm}
+        manifests={manifestDetail ? [manifestDetail] : []}
+        suppliers={suppliers}
+        expenseTypes={expenseTypes}
+        onChange={handleExpenseInput}
+        onSubmit={submitExpense}
+        onClose={closeExpenseModal}
+        lockManifest
+      />
     </DashboardShell>
   );
 }

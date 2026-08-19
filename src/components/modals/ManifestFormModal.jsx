@@ -1,4 +1,5 @@
 import Button from "../Button";
+import MoneyInput from "../MoneyInput";
 
 export default function ManifestFormModal({
   isOpen,
@@ -71,6 +72,17 @@ export default function ManifestFormModal({
 
           <div className="owner-inline-fields">
             <div className="field">
+              <label htmlFor="driver_id">Conductor</label>
+              <select id="driver_id" name="driver_id" value={form.driver_id} onChange={onChange}>
+                <option value="">Sin conductor asignado</option>
+                {drivers.map((driver) => (
+                  <option key={driver.id} value={driver.id}>
+                    {driver.name} - {driver.license}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
               <label htmlFor="vehicle_plate">Vehiculo</label>
               <select
                 id="vehicle_plate"
@@ -87,30 +99,11 @@ export default function ManifestFormModal({
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="driver_id">Conductor</label>
-              <select id="driver_id" name="driver_id" value={form.driver_id} onChange={onChange}>
-                <option value="">Sin conductor asignado</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.name} - {driver.license}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           <div className="field">
             <label htmlFor="freight_value">Valor del flete</label>
-            <input
-              id="freight_value"
-              name="freight_value"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.freight_value}
-              onChange={onChange}
-            />
+            <MoneyInput id="freight_value" name="freight_value" value={form.freight_value} onChange={onChange} />
           </div>
 
           <div className="field">
