@@ -11,7 +11,7 @@ const INITIAL_FORM = {
   plate: "",
   model: "",
   year: "",
-  status: "active",
+  status_id: "",
   driver_name: "",
 };
 
@@ -25,6 +25,7 @@ function formatDate(value) {
 export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [vehicles, setVehicles] = useState([]);
   const [totalVehicles, setTotalVehicles] = useState(0);
+  const [vehicleStatuses, setVehicleStatuses] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [successMessage, setSuccessMessage] = useState("");
@@ -38,7 +39,11 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
     fetchVehicles(currentPage);
   }, [currentPage]);
 
-  const activeCount = useMemo(() => vehicles.filter((vehicle) => vehicle.status === "active").length, [vehicles]);
+  useEffect(() => {
+    fetchVehicleStatuses();
+  }, []);
+
+  const activeCount = useMemo(() => vehicles.filter((vehicle) => vehicle.status?.code === "active").length, [vehicles]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -57,6 +62,15 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       setTotalVehicles(Number(headers["x-total-count"] || data.length));
     } catch (err) {
       setErrorMessage(err.response?.data?.detail || "No fue posible cargar vehiculos.");
+    }
+  }
+
+  async function fetchVehicleStatuses() {
+    try {
+      const { data } = await api.get("/owner/vehicle-statuses");
+      setVehicleStatuses(data);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los estados de vehiculo.");
     }
   }
 
@@ -84,8 +98,14 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
     setSuccessMessage("");
     setErrorMessage("");
 
+    if (!form.status_id) {
+      setErrorMessage("Selecciona un estado para el vehiculo.");
+      return;
+    }
+
     const payload = {
       ...form,
+      status_id: Number(form.status_id),
       driver_name: form.driver_name || null,
     };
 
@@ -143,8 +163,8 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
                   <td>{vehicle.model}</td>
                   <td>{vehicle.year}</td>
                   <td>
-                    <span className={`status-badge ${vehicle.status === "active" ? "status-active" : "status-maintenance"}`}>
-                      {vehicle.status === "active" ? "Activo" : vehicle.status === "maintenance" ? "Mantenimiento" : "Inactivo"}
+                    <span className={`status-badge ${vehicle.status?.code === "active" ? "status-active" : "status-maintenance"}`}>
+                      {vehicle.status?.label || "-"}
                     </span>
                   </td>
                   <td>{vehicle.driver_name || "-"}</td>
@@ -192,10 +212,13 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
                 </div>
                 <div className="field">
                   <label htmlFor="status">Estado</label>
-                  <select id="status" name="status" value={form.status} onChange={handleInputChange}>
-                    <option value="active">Activo</option>
-                    <option value="maintenance">Mantenimiento</option>
-                    <option value="inactive">Inactivo</option>
+                  <select id="status" name="status_id" value={form.status_id} onChange={handleInputChange} required>
+                    <option value="">Selecciona un estado</option>
+                    {vehicleStatuses.map((vehicleStatus) => (
+                      <option key={vehicleStatus.id} value={vehicleStatus.id}>
+                        {vehicleStatus.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

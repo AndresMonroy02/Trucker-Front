@@ -10,15 +10,6 @@ import { getDashboardPathByRole } from "../../utils/roleRouting";
 
 const PAGE_SIZE = 10;
 
-const EXPENSE_TYPE_LABELS = {
-  fuel: "Combustible",
-  toll: "Peaje",
-  maintenance: "Mantenimiento",
-  food: "Alimentacion",
-  lodging: "Hospedaje",
-  other: "Otro",
-};
-
 const PIE_COLORS_LIGHT = ["#2d7dd2", "#3ea6d6", "#4bbf92", "#f0b45a", "#dc7b62", "#8e79d7"];
 const PIE_COLORS_DARK = ["#55a6ff", "#76c1ff", "#63d4b1", "#f4c97b", "#f09785", "#ab98ea"];
 
@@ -51,8 +42,8 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
   const pieData = useMemo(() => {
     return expenseTypeSummary
       .map((item) => ({
-        key: item.expense_type,
-        name: EXPENSE_TYPE_LABELS[item.expense_type] || item.expense_type,
+        key: item.expense_type_id,
+        name: item.expense_type_label,
         value: Number(item.total_amount || 0),
       }))
       .filter((item) => item.value > 0);
@@ -176,6 +167,10 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                 <p className="profile-label">Conductor</p>
                 <p>{manifestDetail.driver_name || "-"}</p>
               </div>
+              <div>
+                <p className="profile-label">Fase</p>
+                <p>{manifestDetail.status?.label || "-"}</p>
+              </div>
               <div className="manifest-info-full">
                 <p className="profile-label">Descripcion de carga</p>
                 <p>{manifestDetail.cargo_description || "-"}</p>
@@ -206,7 +201,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                     {expenses.map((expense) => (
                       <tr key={expense.id}>
                         <td>{formatDate(expense.expense_date)}</td>
-                        <td>{EXPENSE_TYPE_LABELS[expense.expense_type] || expense.expense_type}</td>
+                        <td>{expense.expense_type?.label || "-"}</td>
                         <td>{expense.description}</td>
                         <td>{formatMoney(expense.amount)}</td>
                       </tr>

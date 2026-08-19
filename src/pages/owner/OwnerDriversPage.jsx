@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 
+import { api } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import TablePagination from "../../components/TablePagination";
@@ -10,28 +11,23 @@ const INITIAL_FORM = {
   name: "",
   license: "",
   phone: "",
-  status: "available",
+  status_id: "",
 };
-
-const INITIAL_DRIVERS = [
-  { id: 1, name: "Carlos Mendoza", license: "LIC-2201", phone: "+57 300 555 2190", status: "available" },
-  { id: 2, name: "Lucia Herrera", license: "LIC-1940", phone: "+57 300 555 1415", status: "on_trip" },
-  { id: 3, name: "Mateo Salinas", license: "LIC-3110", phone: "+57 300 555 4872", status: "available" },
-];
 
 const PAGE_SIZE = 8;
 
 export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleTheme }) {
-  const [drivers, setDrivers] = useState(INITIAL_DRIVERS);
+  const [drivers, setDrivers] = useState([]);
+  const [totalDrivers, setTotalDrivers] = useState(0);
+  const [driverStatuses, setDriverStatuses] = useState([]);
   const [form, setForm] = useState(INITIAL_FORM);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const totalPages = Math.max(1, Math.ceil(drivers.length / PAGE_SIZE));
-  const paginatedDrivers = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return drivers.slice(start, start + PAGE_SIZE);
-  }, [drivers, currentPage]);
+  const totalPages = Math.max(1, Math.ceil(totalDrivers / PAGE_SIZE));
+  const paginatedDrivers = useMemo(() => drivers, [drivers]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -39,6 +35,35 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
 
   if (me && me.role !== "owner_profile") {
     return <Navigate to={getDashboardPathByRole(me.role)} replace />;
+  }
+
+  useEffect(() => {
+    fetchDrivers(currentPage);
+  }, [currentPage]);
+
+  useEffect(() => {
+    fetchDriverStatuses();
+  }, []);
+
+  async function fetchDrivers(page) {
+    try {
+      const { data, headers } = await api.get("/owner/drivers", {
+        params: { page, page_size: PAGE_SIZE },
+      });
+      setDrivers(data);
+      setTotalDrivers(Number(headers["x-total-count"] || data.length));
+    } catch (err) {
+      setErrorMessage(err.response?.data?.detail || "No fue posible cargar conductores.");
+    }
+  }
+
+  async function fetchDriverStatuses() {
+    try {
+      const { data } = await api.get("/owner/driver-statuses");
+      setDriverStatuses(data);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los estados de conductor.");
+    }
   }
 
   function openModal() {
@@ -60,23 +85,32 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    setSuccessMessage("");
+    setErrorMessage("");
 
-    const nextDriver = {
-      id: Date.now(),
-      name: form.name.trim(),
-      license: form.license.trim(),
-      phone: form.phone.trim(),
-      status: form.status,
-    };
+    const name = form.name.trim();
+    const license = form.license.trim();
+    const phone = form.phone.trim();
 
-    if (!nextDriver.name || !nextDriver.license || !nextDriver.phone) {
+    if (!name || !license || !phone || !form.status_id) {
+      setErrorMessage("Nombre, licencia, telefono y estado son obligatorios.");
       return;
     }
 
-    setDrivers((prev) => [nextDriver, ...prev]);
-    closeModal();
+    try {
+      await api.post("/owner/drivers", { name, license, phone, status_id: Number(form.status_id) });
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        await fetchDrivers(1);
+      }
+      setSuccessMessage("Conductor creado correctamente.");
+      closeModal();
+    } catch (err) {
+      setErrorMessage(err.response?.data?.detail || "No fue posible crear el conductor.");
+    }
   }
 
   return (
@@ -88,11 +122,14 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       title="Conductores"
       subtitle="Crea y administra tus conductores"
     >
+      {successMessage ? <p className="success">{successMessage}</p> : null}
+      {errorMessage ? <p className="error">{errorMessage}</p> : null}
+
       <section className="panel owner-list-panel">
         <div className="owner-list-header">
           <div>
             <h3>Lista de conductores</h3>
-            <p className="hint">Total registrados: {drivers.length}</p>
+            <p className="hint">Total registrados: {totalDrivers}</p>
           </div>
           <Button onClick={openModal}>Crear nuevo conductor</Button>
         </div>
@@ -114,8 +151,8 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
                   <td>{driver.license}</td>
                   <td>{driver.phone}</td>
                   <td>
-                    <span className={`status-badge ${driver.status === "available" ? "status-active" : "status-maintenance"}`}>
-                      {driver.status === "available" ? "Disponible" : "En ruta"}
+                    <span className={`status-badge ${driver.status?.code === "available" ? "status-active" : "status-maintenance"}`}>
+                      {driver.status?.label || "-"}
                     </span>
                   </td>
                 </tr>
@@ -126,7 +163,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
 
         <TablePagination
           page={currentPage}
-          totalItems={drivers.length}
+          totalItems={totalDrivers}
           pageSize={PAGE_SIZE}
           onPageChange={handlePageChange}
           itemLabel="conductores"
@@ -161,9 +198,13 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
 
               <div className="field">
                 <label htmlFor="status">Estado</label>
-                <select id="status" name="status" value={form.status} onChange={handleInputChange}>
-                  <option value="available">Disponible</option>
-                  <option value="on_trip">En ruta</option>
+                <select id="status" name="status_id" value={form.status_id} onChange={handleInputChange} required>
+                  <option value="">Selecciona un estado</option>
+                  {driverStatuses.map((driverStatus) => (
+                    <option key={driverStatus.id} value={driverStatus.id}>
+                      {driverStatus.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -178,3 +219,4 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
     </DashboardShell>
   );
 }
+

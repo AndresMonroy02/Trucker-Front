@@ -50,11 +50,25 @@ export default function App() {
   const [loginForm, setLoginForm] = useState(EMPTY_LOGIN);
   const [registerErrors, setRegisterErrors] = useState({});
   const [loginErrors, setLoginErrors] = useState({});
-  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [token, setTokenState] = useState(localStorage.getItem("token") || "");
   const [me, setMe] = useState(null);
   const [adminMessage, setAdminMessage] = useState("");
   const [status, setStatus] = useState({ success: "", error: "" });
   const [theme, setTheme] = useState(getInitialTheme);
+
+  // Keep the axios header in sync with token on every render (not just in an effect) so
+  // requests fired from child effects on the same mount never race ahead of authentication.
+  setAuthToken(token);
+
+  function setToken(nextToken) {
+    setAuthToken(nextToken);
+    if (nextToken) {
+      localStorage.setItem("token", nextToken);
+    } else {
+      localStorage.removeItem("token");
+    }
+    setTokenState(nextToken);
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -62,12 +76,9 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    setAuthToken(token);
     if (token) {
-      localStorage.setItem("token", token);
       fetchProfile();
     } else {
-      localStorage.removeItem("token");
       setMe(null);
       setAdminMessage("");
     }

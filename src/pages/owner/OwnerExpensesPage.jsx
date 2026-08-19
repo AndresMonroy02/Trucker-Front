@@ -100,7 +100,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
                   <td>{formatDate(expense.expense_date)}</td>
                   <td>{expense.manifest_number}</td>
                   <td>{expense.manifest_origin} - {expense.manifest_destination}</td>
-                  <td>{expense.expense_type}</td>
+                  <td>{expense.expense_type?.label || "-"}</td>
                   <td>{expense.description}</td>
                   <td>{expense.supplier_name || "-"}</td>
                   <td>{expense.created_by_username || "-"}</td>

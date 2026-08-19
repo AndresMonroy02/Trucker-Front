@@ -9,7 +9,7 @@ import { getDashboardPathByRole } from "../../utils/roleRouting";
 
 const EMPTY_SUPPLIER_FORM = {
   name: "",
-  supplier_type: "other",
+  supplier_type_id: "",
   tax_id: "",
   contact_name: "",
   contact_phone: "",
@@ -28,6 +28,7 @@ function formatDate(value) {
 export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [suppliers, setSuppliers] = useState([]);
   const [totalSuppliers, setTotalSuppliers] = useState(0);
+  const [supplierTypes, setSupplierTypes] = useState([]);
   const [supplierForm, setSupplierForm] = useState(EMPTY_SUPPLIER_FORM);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -49,6 +50,10 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
     fetchSuppliers(currentPage);
   }, [currentPage]);
 
+  useEffect(() => {
+    fetchSupplierTypes();
+  }, []);
+
   async function fetchSuppliers(page) {
     try {
       const { data, headers } = await api.get("/owner/suppliers", {
@@ -58,6 +63,15 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       setTotalSuppliers(Number(headers["x-total-count"] || data.length));
     } catch (err) {
       setErrorMessage(err.response?.data?.detail || "No fue posible cargar proveedores.");
+    }
+  }
+
+  async function fetchSupplierTypes() {
+    try {
+      const { data } = await api.get("/owner/supplier-types");
+      setSupplierTypes(data);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los tipos de proveedor.");
     }
   }
 
@@ -87,6 +101,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
 
     const payload = {
       ...supplierForm,
+      supplier_type_id: Number(supplierForm.supplier_type_id),
       tax_id: supplierForm.tax_id || null,
       contact_name: supplierForm.contact_name || null,
       contact_phone: supplierForm.contact_phone || null,
@@ -145,7 +160,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
               {paginatedSuppliers.map((supplier) => (
                 <tr key={supplier.id}>
                   <td>{supplier.name}</td>
-                  <td>{supplier.supplier_type}</td>
+                  <td>{supplier.supplier_type?.label || "-"}</td>
                   <td>{supplier.contact_name || supplier.contact_phone || "-"}</td>
                   <td>{supplier.city || "-"}</td>
                   <td>
@@ -188,13 +203,13 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
               <div className="owner-inline-fields">
                 <div className="field">
                   <label htmlFor="supplier_type">Tipo</label>
-                  <select id="supplier_type" name="supplier_type" value={supplierForm.supplier_type} onChange={handleInputChange}>
-                    <option value="fuel_station">Estacion combustible</option>
-                    <option value="toll_operator">Operador peaje</option>
-                    <option value="workshop">Taller</option>
-                    <option value="restaurant">Restaurante</option>
-                    <option value="lodging">Hospedaje</option>
-                    <option value="other">Otro</option>
+                  <select id="supplier_type" name="supplier_type_id" value={supplierForm.supplier_type_id} onChange={handleInputChange} required>
+                    <option value="">Selecciona un tipo</option>
+                    {supplierTypes.map((supplierType) => (
+                      <option key={supplierType.id} value={supplierType.id}>
+                        {supplierType.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="field">
