@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { api } from "../../api";
 import Button from "../../components/Button";
@@ -12,24 +13,25 @@ const INITIAL_FORM = {
   model: "",
   year: "",
   status_id: "",
-  driver_name: "",
+  driver_id: "",
 };
 
 const PAGE_SIZE = 8;
 
 function formatDate(value) {
   if (!value) return "-";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
+  const dateValue = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+  const date = new Date(dateValue);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("es-CO");
 }
 
 export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [vehicles, setVehicles] = useState([]);
   const [totalVehicles, setTotalVehicles] = useState(0);
   const [vehicleStatuses, setVehicleStatuses] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(totalVehicles / PAGE_SIZE));
@@ -41,6 +43,10 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
 
   useEffect(() => {
     fetchVehicleStatuses();
+  }, []);
+
+  useEffect(() => {
+    fetchActiveDrivers();
   }, []);
 
   const activeCount = useMemo(() => vehicles.filter((vehicle) => vehicle.status?.code === "active").length, [vehicles]);
@@ -61,7 +67,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       setVehicles(data);
       setTotalVehicles(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar vehiculos.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar vehiculos.");
     }
   }
 
@@ -70,7 +76,16 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       const { data } = await api.get("/owner/vehicle-statuses");
       setVehicleStatuses(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los estados de vehiculo.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar los estados de vehiculo.");
+    }
+  }
+
+  async function fetchActiveDrivers() {
+    try {
+      const { data } = await api.get("/owner/active-drivers");
+      setDrivers(data);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible cargar los conductores activos.");
     }
   }
 
@@ -95,18 +110,16 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setSuccessMessage("");
-    setErrorMessage("");
 
     if (!form.status_id) {
-      setErrorMessage("Selecciona un estado para el vehiculo.");
+      toast.error("Selecciona un estado para el vehiculo.");
       return;
     }
 
     const payload = {
       ...form,
       status_id: Number(form.status_id),
-      driver_name: form.driver_name || null,
+      driver_id: form.driver_id ? Number(form.driver_id) : null,
     };
 
     try {
@@ -116,10 +129,10 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       } else {
         await fetchVehicles(1);
       }
-      setSuccessMessage("Vehiculo creado correctamente.");
+      toast.success("Vehiculo creado correctamente.");
       closeModal();
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible crear el vehiculo.");
+      toast.error(err.response?.data?.detail || "No fue posible crear el vehiculo.");
     }
   }
 
@@ -132,9 +145,6 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       title="Vehiculos"
       subtitle="Administra tu flota para usarla al crear manifiestos"
     >
-      {successMessage ? <p className="success">{successMessage}</p> : null}
-      {errorMessage ? <p className="error">{errorMessage}</p> : null}
-
       <section className="panel owner-list-panel">
         <div className="owner-list-header">
           <div>
@@ -167,7 +177,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
                       {vehicle.status?.label || "-"}
                     </span>
                   </td>
-                  <td>{vehicle.driver_name || "-"}</td>
+                  <td>{vehicle.driver?.name || vehicle.driver_name || "-"}</td>
                   <td>{formatDate(vehicle.created_at)}</td>
                 </tr>
               ))}
@@ -224,8 +234,15 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
               </div>
 
               <div className="field">
-                <label htmlFor="driver_name">Conductor</label>
-                <input id="driver_name" name="driver_name" value={form.driver_name} onChange={handleInputChange} />
+                <label htmlFor="driver_id">Conductor</label>
+                <select id="driver_id" name="driver_id" value={form.driver_id} onChange={handleInputChange}>
+                  <option value="">Sin conductor asignado</option>
+                  {drivers.map((driver) => (
+                    <option key={driver.id} value={driver.id}>
+                      {driver.name} - {driver.license}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="actions-row">

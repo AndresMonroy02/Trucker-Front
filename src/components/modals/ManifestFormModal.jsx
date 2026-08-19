@@ -4,6 +4,7 @@ export default function ManifestFormModal({
   isOpen,
   form,
   vehicles,
+  drivers,
   manifestStatuses,
   onChange,
   onSubmit,
@@ -87,8 +88,15 @@ export default function ManifestFormModal({
               </select>
             </div>
             <div className="field">
-              <label htmlFor="driver_name">Conductor</label>
-              <input id="driver_name" name="driver_name" value={form.driver_name} onChange={onChange} />
+              <label htmlFor="driver_id">Conductor</label>
+              <select id="driver_id" name="driver_id" value={form.driver_id} onChange={onChange}>
+                <option value="">Sin conductor asignado</option>
+                {drivers.map((driver) => (
+                  <option key={driver.id} value={driver.id}>
+                    {driver.name} - {driver.license}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

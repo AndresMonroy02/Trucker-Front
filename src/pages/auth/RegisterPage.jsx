@@ -1,4 +1,5 @@
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import AuthForm from "../../components/AuthForm";
 import { api } from "../../api";
@@ -19,7 +20,7 @@ const fields = [
   },
 ];
 
-export default function RegisterPage({ token, values, setValues, errors, setErrors, status, setStatus, redirectPath = "/dashboard" }) {
+export default function RegisterPage({ token, values, setValues, errors, setErrors, redirectPath = "/dashboard" }) {
   const navigate = useNavigate();
 
   if (token) {
@@ -33,27 +34,26 @@ export default function RegisterPage({ token, values, setValues, errors, setErro
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setStatus({ error: "", success: "" });
 
     const nextErrors = validateRegister(values);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      setStatus({ error: "Corrige los campos marcados.", success: "" });
+      toast.error("Corrige los campos marcados.");
       return;
     }
 
     try {
       const { data } = await api.post("/auth/register", values);
-      setStatus({ error: "", success: `Usuario ${data.username} creado. Inicia sesion.` });
+      toast.success(`Usuario ${data.username} creado. Inicia sesion.`);
       setValues({ username: "", email: "", password: "", role: "owner_profile" });
       navigate("/login");
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (Array.isArray(detail)) {
         setErrors(parseApiFieldErrors(detail));
-        setStatus({ error: "Error de validacion. Revisa tus datos.", success: "" });
+        toast.error("Error de validacion. Revisa tus datos.");
       } else {
-        setStatus({ error: detail || "No se pudo registrar el usuario.", success: "" });
+        toast.error(detail || "No se pudo registrar el usuario.");
       }
     }
   }

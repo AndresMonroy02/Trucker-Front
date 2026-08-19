@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { api, setAuthToken } from "./api";
 import AdminDashboardPage from "./pages/owner/AdminDashboardPage";
@@ -54,7 +55,6 @@ export default function App() {
   const [token, setTokenState] = useState(localStorage.getItem("token") || "");
   const [me, setMe] = useState(null);
   const [adminMessage, setAdminMessage] = useState("");
-  const [status, setStatus] = useState({ success: "", error: "" });
   const [theme, setTheme] = useState(getInitialTheme);
 
   // Keep the axios header in sync with token on every render (not just in an effect) so
@@ -85,21 +85,12 @@ export default function App() {
     }
   }, [token]);
 
-  useEffect(() => {
-    if (!status.success) return undefined;
-    const timer = setTimeout(() => {
-      setStatus((prev) => ({ ...prev, success: "" }));
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [status.success]);
-
   async function fetchProfile() {
     try {
       const { data } = await api.get("/users/me");
       setMe(data);
-      setStatus((prev) => ({ ...prev, error: "" }));
     } catch {
-      setStatus({ success: "", error: "La sesion expiro. Vuelve a iniciar sesion." });
+      toast.error("La sesion expiro. Vuelve a iniciar sesion.");
       setToken("");
     }
   }
@@ -111,7 +102,7 @@ export default function App() {
 
   function logout() {
     setToken("");
-    setStatus({ success: "Sesion cerrada.", error: "" });
+    toast.success("Sesion cerrada.");
     navigate("/login", { replace: true });
   }
 
@@ -138,9 +129,6 @@ export default function App() {
           </div>
         ) : null}
 
-        {status.success ? <p className="success">{status.success}</p> : null}
-        {status.error ? <p className="error">{status.error}</p> : null}
-
         <Routes>
           <Route
             path="/"
@@ -155,8 +143,6 @@ export default function App() {
                 setValues={setLoginForm}
                 errors={loginErrors}
                 setErrors={setLoginErrors}
-                status={status}
-                setStatus={setStatus}
                 onLogin={handleLogin}
                 redirectPath={dashboardPath}
               />
@@ -171,8 +157,6 @@ export default function App() {
                 setValues={setRegisterForm}
                 errors={registerErrors}
                 setErrors={setRegisterErrors}
-                status={status}
-                setStatus={setStatus}
                 redirectPath={dashboardPath}
               />
             }
@@ -189,7 +173,6 @@ export default function App() {
                 me={me}
                 theme={theme}
                 onToggleTheme={toggleTheme}
-                setStatus={setStatus}
                 onLogout={logout}
               />
             }
@@ -274,7 +257,6 @@ export default function App() {
                 me={me}
                 theme={theme}
                 onToggleTheme={toggleTheme}
-                setStatus={setStatus}
                 onLogout={logout}
               />
             }
@@ -289,7 +271,6 @@ export default function App() {
                 setAdminMessage={setAdminMessage}
                 theme={theme}
                 onToggleTheme={toggleTheme}
-                setStatus={setStatus}
                 onLogout={logout}
               />
             }
@@ -302,7 +283,6 @@ export default function App() {
                 me={me}
                 theme={theme}
                 onToggleTheme={toggleTheme}
-                setStatus={setStatus}
                 onLogout={logout}
               />
             }

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { api } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
+import DriverFormModal from "../../components/modals/DriverFormModal";
 import TablePagination from "../../components/TablePagination";
 import { getDashboardPathByRole } from "../../utils/roleRouting";
 
@@ -22,8 +24,6 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
   const [driverStatuses, setDriverStatuses] = useState([]);
   const [form, setForm] = useState(INITIAL_FORM);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(totalDrivers / PAGE_SIZE));
@@ -53,7 +53,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       setDrivers(data);
       setTotalDrivers(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar conductores.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar conductores.");
     }
   }
 
@@ -62,7 +62,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       const { data } = await api.get("/owner/driver-statuses");
       setDriverStatuses(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los estados de conductor.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar los estados de conductor.");
     }
   }
 
@@ -87,15 +87,13 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setSuccessMessage("");
-    setErrorMessage("");
 
     const name = form.name.trim();
     const license = form.license.trim();
     const phone = form.phone.trim();
 
     if (!name || !license || !phone || !form.status_id) {
-      setErrorMessage("Nombre, licencia, telefono y estado son obligatorios.");
+      toast.error("Nombre, licencia, telefono y estado son obligatorios.");
       return;
     }
 
@@ -106,10 +104,10 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       } else {
         await fetchDrivers(1);
       }
-      setSuccessMessage("Conductor creado correctamente.");
+      toast.success("Conductor creado correctamente.");
       closeModal();
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible crear el conductor.");
+      toast.error(err.response?.data?.detail || "No fue posible crear el conductor.");
     }
   }
 
@@ -122,9 +120,6 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       title="Conductores"
       subtitle="Crea y administra tus conductores"
     >
-      {successMessage ? <p className="success">{successMessage}</p> : null}
-      {errorMessage ? <p className="error">{errorMessage}</p> : null}
-
       <section className="panel owner-list-panel">
         <div className="owner-list-header">
           <div>
@@ -170,52 +165,14 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
         />
       </section>
 
-      {isModalOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={closeModal}>
-          <section
-            className="modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Crear nuevo conductor"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3>Nuevo conductor</h3>
-            <form className="owner-form" onSubmit={handleSubmit}>
-              <div className="field">
-                <label htmlFor="name">Nombre completo</label>
-                <input id="name" name="name" value={form.name} onChange={handleInputChange} required />
-              </div>
-
-              <div className="field">
-                <label htmlFor="license">Licencia</label>
-                <input id="license" name="license" value={form.license} onChange={handleInputChange} required />
-              </div>
-
-              <div className="field">
-                <label htmlFor="phone">Telefono</label>
-                <input id="phone" name="phone" value={form.phone} onChange={handleInputChange} required />
-              </div>
-
-              <div className="field">
-                <label htmlFor="status">Estado</label>
-                <select id="status" name="status_id" value={form.status_id} onChange={handleInputChange} required>
-                  <option value="">Selecciona un estado</option>
-                  {driverStatuses.map((driverStatus) => (
-                    <option key={driverStatus.id} value={driverStatus.id}>
-                      {driverStatus.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="actions-row">
-                <Button type="submit">Guardar conductor</Button>
-                <Button type="button" variant="cancel" onClick={closeModal}>Cancelar</Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      <DriverFormModal
+        isOpen={isModalOpen}
+        form={form}
+        driverStatuses={driverStatuses}
+        onChange={handleInputChange}
+        onSubmit={handleSubmit}
+        onClose={closeModal}
+      />
     </DashboardShell>
   );
 }

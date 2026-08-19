@@ -1,4 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import AuthForm from "../../components/AuthForm";
 import { api } from "../../api";
@@ -9,7 +10,7 @@ const fields = [
   { name: "password", label: "Contrasena", type: "password", placeholder: "******", required: true },
 ];
 
-export default function LoginPage({ token, values, setValues, errors, setErrors, status, setStatus, onLogin, redirectPath = "/dashboard" }) {
+export default function LoginPage({ token, values, setValues, errors, setErrors, onLogin, redirectPath = "/dashboard" }) {
   if (token) {
     return <Navigate to={redirectPath} replace />;
   }
@@ -21,12 +22,11 @@ export default function LoginPage({ token, values, setValues, errors, setErrors,
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setStatus({ error: "", success: "" });
 
     const nextErrors = validateLogin(values);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      setStatus({ error: "Corrige los campos marcados.", success: "" });
+      toast.error("Corrige los campos marcados.");
       return;
     }
 
@@ -40,14 +40,14 @@ export default function LoginPage({ token, values, setValues, errors, setErrors,
       });
 
       onLogin(data.access_token);
-      setStatus({ error: "", success: "Inicio de sesion exitoso." });
+      toast.success("Inicio de sesion exitoso.");
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (Array.isArray(detail)) {
         setErrors(parseApiFieldErrors(detail));
-        setStatus({ error: "Error de validacion. Revisa tus datos.", success: "" });
+        toast.error("Error de validacion. Revisa tus datos.");
       } else {
-        setStatus({ error: detail || "Usuario o contrasena incorrectos.", success: "" });
+        toast.error(detail || "Usuario o contrasena incorrectos.");
       }
     }
   }

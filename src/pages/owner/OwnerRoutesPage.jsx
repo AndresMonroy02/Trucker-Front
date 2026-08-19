@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { api } from "../../api";
 import Button from "../../components/Button";
@@ -18,7 +19,7 @@ const EMPTY_MANIFEST_FORM = {
   cargo_description: "",
   freight_value: "",
   vehicle_plate: "",
-  driver_name: "",
+  driver_id: "",
   status_id: "",
   is_closed: false,
 };
@@ -58,6 +59,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [manifests, setManifests] = useState([]);
   const [totalManifests, setTotalManifests] = useState(0);
   const [vehicles, setVehicles] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [expenseTypes, setExpenseTypes] = useState([]);
   const [manifestStatuses, setManifestStatuses] = useState([]);
@@ -65,8 +67,6 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [manifestForm, setManifestForm] = useState(EMPTY_MANIFEST_FORM);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
   const [currentManifestPage, setCurrentManifestPage] = useState(1);
 
   useEffect(() => {
@@ -87,6 +87,10 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   useEffect(() => {
     fetchVehicles();
+  }, []);
+
+  useEffect(() => {
+    fetchActiveDrivers();
   }, []);
 
   const safeManifestTotalPages = Math.max(1, Math.ceil(totalManifests / MANIFEST_PAGE_SIZE));
@@ -115,7 +119,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       setManifests(data);
       setTotalManifests(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los manifiestos.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar los manifiestos.");
     }
   }
 
@@ -126,7 +130,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       });
       setSuppliers(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar proveedores.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar proveedores.");
     }
   }
 
@@ -137,7 +141,16 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       });
       setVehicles(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar vehiculos.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar vehiculos.");
+    }
+  }
+
+  async function fetchActiveDrivers() {
+    try {
+      const { data } = await api.get("/owner/active-drivers");
+      setDrivers(data);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible cargar los conductores activos.");
     }
   }
 
@@ -146,7 +159,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       const { data } = await api.get("/owner/expense-types");
       setExpenseTypes(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los tipos de gasto.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar los tipos de gasto.");
     }
   }
 
@@ -155,7 +168,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       const { data } = await api.get("/owner/manifest-statuses");
       setManifestStatuses(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los estados de manifiesto.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar los estados de manifiesto.");
     }
   }
 
@@ -179,7 +192,18 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   function handleManifestInput(event) {
     const { name, value, type, checked } = event.target;
-    setManifestForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setManifestForm((prev) => {
+      if (name !== "driver_id") {
+        return { ...prev, [name]: type === "checkbox" ? checked : value };
+      }
+
+      const assignedVehicle = vehicles.find((vehicle) => vehicle.driver_id === Number(value));
+      return {
+        ...prev,
+        driver_id: value,
+        vehicle_plate: assignedVehicle?.plate || prev.vehicle_plate,
+      };
+    });
   }
 
   function handleExpenseInput(event) {
@@ -200,8 +224,6 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   async function submitManifest(event) {
     event.preventDefault();
-    setSuccessMessage("");
-    setErrorMessage("");
 
     const payload = {
       ...manifestForm,
@@ -209,13 +231,13 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       arrival_date: manifestForm.arrival_date || null,
       cargo_description: manifestForm.cargo_description || null,
       vehicle_plate: manifestForm.vehicle_plate || null,
-      driver_name: manifestForm.driver_name || null,
+      driver_id: manifestForm.driver_id ? Number(manifestForm.driver_id) : null,
       status_id: manifestForm.status_id ? Number(manifestForm.status_id) : null,
     };
 
     try {
       const { data } = await api.post("/owner/manifests", payload);
-      setSuccessMessage("Manifiesto creado correctamente.");
+      toast.success("Manifiesto creado correctamente.");
       closeManifestModal();
       if (currentManifestPage !== 1) {
         setCurrentManifestPage(1);
@@ -223,17 +245,15 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         await fetchManifests(statusFilter, 1);
       }
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible crear el manifiesto.");
+      toast.error(err.response?.data?.detail || "No fue posible crear el manifiesto.");
     }
   }
 
   async function submitExpense(event) {
     event.preventDefault();
-    setSuccessMessage("");
-    setErrorMessage("");
 
     if (!expenseForm.manifest_id) {
-      setErrorMessage("Selecciona un manifiesto para registrar el gasto.");
+      toast.error("Selecciona un manifiesto para registrar el gasto.");
       return;
     }
 
@@ -253,12 +273,12 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
     try {
       await api.post(`/owner/manifests/${manifestId}/expenses`, payload);
-      setSuccessMessage("Gasto registrado correctamente.");
+      toast.success("Gasto registrado correctamente.");
       closeExpenseModal();
       setExpenseForm(EMPTY_EXPENSE_FORM);
       await fetchManifests(statusFilter, currentManifestPage);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible registrar el gasto.");
+      toast.error(err.response?.data?.detail || "No fue posible registrar el gasto.");
     }
   }
 
@@ -271,9 +291,6 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       title="Manifiestos"
       subtitle="Gestiona rutas, crea gastos por ruta y consulta el detalle"
     >
-      {successMessage ? <p className="success">{successMessage}</p> : null}
-      {errorMessage ? <p className="error">{errorMessage}</p> : null}
-
       <section className="panel owner-list-panel">
         <div className="owner-list-header">
           <div>
@@ -351,6 +368,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         isOpen={manifestModalOpen}
         form={manifestForm}
         vehicles={vehicles}
+        drivers={drivers}
         manifestStatuses={manifestStatuses}
         onChange={handleManifestInput}
         onSubmit={submitManifest}

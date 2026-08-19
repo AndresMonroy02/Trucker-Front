@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { api } from "../../api";
 import DashboardShell from "../../components/DashboardShell";
@@ -25,7 +26,6 @@ function formatDate(value) {
 export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [expenses, setExpenses] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(totalExpenses / PAGE_SIZE));
@@ -51,7 +51,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       setExpenses(data);
       setTotalExpenses(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar gastos.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar gastos.");
     }
   }
 
@@ -69,8 +69,6 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       title="Gastos"
       subtitle="Consulta general de gastos ordenados del mas reciente al mas antiguo"
     >
-      {errorMessage ? <p className="error">{errorMessage}</p> : null}
-
       <section className="panel owner-list-panel">
         <div className="owner-list-header">
           <div>

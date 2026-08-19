@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { api } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
+import SupplierFormModal from "../../components/modals/SupplierFormModal";
 import TablePagination from "../../components/TablePagination";
 import { getDashboardPathByRole } from "../../utils/roleRouting";
 
@@ -31,8 +33,6 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
   const [supplierTypes, setSupplierTypes] = useState([]);
   const [supplierForm, setSupplierForm] = useState(EMPTY_SUPPLIER_FORM);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(totalSuppliers / PAGE_SIZE));
@@ -62,7 +62,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       setSuppliers(data);
       setTotalSuppliers(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar proveedores.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar proveedores.");
     }
   }
 
@@ -71,7 +71,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       const { data } = await api.get("/owner/supplier-types");
       setSupplierTypes(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar los tipos de proveedor.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar los tipos de proveedor.");
     }
   }
 
@@ -90,14 +90,12 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
   }
 
   function handleInputChange(event) {
-    const { name, value } = event.target;
-    setSupplierForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = event.target;
+    setSupplierForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setSuccessMessage("");
-    setErrorMessage("");
 
     const payload = {
       ...supplierForm,
@@ -116,10 +114,10 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       } else {
         await fetchSuppliers(1);
       }
-      setSuccessMessage("Proveedor creado correctamente.");
+      toast.success("Proveedor creado correctamente.");
       closeModal();
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible crear el proveedor.");
+      toast.error(err.response?.data?.detail || "No fue posible crear el proveedor.");
     }
   }
 
@@ -132,9 +130,6 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       title="Proveedores"
       subtitle="Lista y alta de proveedores para gastos de ruta"
     >
-      {successMessage ? <p className="success">{successMessage}</p> : null}
-      {errorMessage ? <p className="error">{errorMessage}</p> : null}
-
       <section className="panel owner-list-panel">
         <div className="owner-list-header">
           <div>
@@ -184,70 +179,14 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
         />
       </section>
 
-      {isModalOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={closeModal}>
-          <section
-            className="modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Crear proveedor"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3>Nuevo proveedor</h3>
-            <form className="owner-form" onSubmit={handleSubmit}>
-              <div className="field">
-                <label htmlFor="name">Nombre</label>
-                <input id="name" name="name" value={supplierForm.name} onChange={handleInputChange} required />
-              </div>
-
-              <div className="owner-inline-fields">
-                <div className="field">
-                  <label htmlFor="supplier_type">Tipo</label>
-                  <select id="supplier_type" name="supplier_type_id" value={supplierForm.supplier_type_id} onChange={handleInputChange} required>
-                    <option value="">Selecciona un tipo</option>
-                    {supplierTypes.map((supplierType) => (
-                      <option key={supplierType.id} value={supplierType.id}>
-                        {supplierType.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="tax_id">NIT / Tax ID</label>
-                  <input id="tax_id" name="tax_id" value={supplierForm.tax_id} onChange={handleInputChange} />
-                </div>
-              </div>
-
-              <div className="owner-inline-fields">
-                <div className="field">
-                  <label htmlFor="contact_name">Contacto</label>
-                  <input id="contact_name" name="contact_name" value={supplierForm.contact_name} onChange={handleInputChange} />
-                </div>
-                <div className="field">
-                  <label htmlFor="contact_phone">Telefono</label>
-                  <input id="contact_phone" name="contact_phone" value={supplierForm.contact_phone} onChange={handleInputChange} />
-                </div>
-              </div>
-
-              <div className="owner-inline-fields">
-                <div className="field">
-                  <label htmlFor="contact_email">Email</label>
-                  <input id="contact_email" name="contact_email" value={supplierForm.contact_email} onChange={handleInputChange} />
-                </div>
-                <div className="field">
-                  <label htmlFor="city">Ciudad</label>
-                  <input id="city" name="city" value={supplierForm.city} onChange={handleInputChange} />
-                </div>
-              </div>
-
-              <div className="actions-row">
-                <Button type="submit">Guardar proveedor</Button>
-                <Button type="button" variant="cancel" onClick={closeModal}>Cancelar</Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      <SupplierFormModal
+        isOpen={isModalOpen}
+        form={supplierForm}
+        supplierTypes={supplierTypes}
+        onChange={handleInputChange}
+        onSubmit={handleSubmit}
+        onClose={closeModal}
+      />
     </DashboardShell>
   );
 }

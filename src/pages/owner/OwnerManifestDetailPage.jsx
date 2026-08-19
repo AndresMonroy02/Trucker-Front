@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { toast } from "sonner";
 
 import { api } from "../../api";
 import Button from "../../components/Button";
@@ -34,7 +35,6 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
   const [expenseTypeSummary, setExpenseTypeSummary] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [errorMessage, setErrorMessage] = useState("");
 
   const totalPages = Math.max(1, Math.ceil(totalExpenses / PAGE_SIZE));
   const expenses = manifestDetail?.expenses ?? [];
@@ -81,7 +81,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       setManifestDetail(data);
       setTotalExpenses(Number(headers["x-total-count"] || data.expenses?.length || 0));
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar el detalle del manifiesto.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar el detalle del manifiesto.");
     }
   }
 
@@ -90,7 +90,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       const { data } = await api.get(`/owner/manifests/${id}/expenses/summary-by-type`);
       setExpenseTypeSummary(data);
     } catch (err) {
-      setErrorMessage(err.response?.data?.detail || "No fue posible cargar el resumen de gastos por tipo.");
+      toast.error(err.response?.data?.detail || "No fue posible cargar el resumen de gastos por tipo.");
     }
   }
 
@@ -108,8 +108,6 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       title="Detalle de manifiesto"
       subtitle={manifestDetail ? `${manifestDetail.manifest_number} | ${manifestDetail.origin} - ${manifestDetail.destination}` : "Cargando informacion de ruta"}
     >
-      {errorMessage ? <p className="error">{errorMessage}</p> : null}
-
       {manifestDetail ? (
         <>
           <section className="owner-kpi-grid manifest-kpi-grid">
