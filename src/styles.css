@@ -1168,6 +1168,22 @@ button:focus-visible,
   background: color-mix(in srgb, var(--c-primary) 8%, transparent);
 }
 
+.table-action-button {
+  border: 1px solid var(--c-primary);
+  border-radius: 6px;
+  padding: 5px 9px;
+  background: transparent;
+  color: var(--c-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.table-action-button:hover {
+  background: color-mix(in srgb, var(--c-primary) 12%, transparent);
+}
+
 .table-pagination {
   margin-top: 10px;
   display: flex;
@@ -1270,6 +1286,65 @@ button:focus-visible,
 .owner-form {
   display: grid;
   gap: 10px;
+}
+
+.expense-entry {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+}
+
+.expense-entry legend {
+  padding: 0 6px;
+  color: var(--c-text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.expense-list {
+  display: grid;
+  gap: 8px;
+}
+
+.expense-list-header {
+  color: var(--c-text-muted);
+  font-size: 0.88rem;
+}
+
+.expense-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface-soft);
+}
+
+.expense-list-item > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.expense-list-item span {
+  color: var(--c-text-muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 600px) {
+  .expense-list-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .expense-list-item .actions-row {
+    justify-content: flex-start;
+  }
 }
 
 .owner-finance-grid {

@@ -67,6 +67,8 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [manifestForm, setManifestForm] = useState(EMPTY_MANIFEST_FORM);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
+  const [expenseForms, setExpenseForms] = useState([]);
+  const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
   const [expenseManifestLocked, setExpenseManifestLocked] = useState(false);
   const [currentManifestPage, setCurrentManifestPage] = useState(1);
 
@@ -184,6 +186,8 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   function openExpenseModal(manifestId) {
     setExpenseForm({ ...EMPTY_EXPENSE_FORM, manifest_id: String(manifestId) });
+    setExpenseForms([]);
+    setEditingExpenseIndex(null);
     setExpenseManifestLocked(true);
     setExpenseModalOpen(true);
   }
@@ -212,6 +216,44 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   function handleExpenseInput(event) {
     const { name, value, type, checked } = event.target;
     setExpenseForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function validateExpenseForm(form) {
+    if (!form.manifest_id) {
+      toast.error("Selecciona un manifiesto para registrar el gasto.");
+      return false;
+    }
+    if (!form.expense_type_id || !form.description.trim() || !form.amount || Number(form.amount) <= 0 || !form.expense_date) {
+      toast.error("Completa tipo, monto, fecha y descripcion del gasto.");
+      return false;
+    }
+    return true;
+  }
+
+  function addExpenseForm() {
+    if (!validateExpenseForm(expenseForm)) return;
+
+    setExpenseForms((prev) => {
+      if (editingExpenseIndex === null) return [...prev, expenseForm];
+      return prev.map((item, index) => (index === editingExpenseIndex ? expenseForm : item));
+    });
+    setExpenseForm({ ...EMPTY_EXPENSE_FORM, manifest_id: expenseForm.manifest_id });
+    setEditingExpenseIndex(null);
+  }
+
+  function editExpenseForm(index) {
+    setExpenseForm(expenseForms[index]);
+    setEditingExpenseIndex(index);
+  }
+
+  function removeExpenseForm(index) {
+    setExpenseForms((prev) => prev.filter((_, formIndex) => formIndex !== index));
+    if (editingExpenseIndex === index) {
+      setExpenseForm({ ...EMPTY_EXPENSE_FORM, manifest_id: expenseForm.manifest_id });
+      setEditingExpenseIndex(null);
+    } else if (editingExpenseIndex !== null && editingExpenseIndex > index) {
+      setEditingExpenseIndex((prev) => prev - 1);
+    }
   }
 
   function handleManifestPageChange(nextPage) {
@@ -255,30 +297,38 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   async function submitExpense(event) {
     event.preventDefault();
 
-    if (!expenseForm.manifest_id) {
-      toast.error("Selecciona un manifiesto para registrar el gasto.");
-      return;
+    let expensesToSubmit = expenseForms;
+    if (editingExpenseIndex !== null) {
+      if (!validateExpenseForm(expenseForm)) return;
+      expensesToSubmit = expenseForms.map((item, index) => (index === editingExpenseIndex ? expenseForm : item));
+    } else if (expenseForms.length === 0 || expenseForm.description || expenseForm.amount || expenseForm.expense_type_id || expenseForm.expense_date) {
+      if (!validateExpenseForm(expenseForm)) return;
+      expensesToSubmit = [...expenseForms, expenseForm];
     }
 
-    const manifestId = Number(expenseForm.manifest_id);
+    const manifestId = Number((expensesToSubmit[0] || expenseForm).manifest_id);
     const payload = {
-      supplier_id: expenseForm.supplier_id ? Number(expenseForm.supplier_id) : null,
-      expense_type_id: Number(expenseForm.expense_type_id),
-      description: expenseForm.description,
-      amount: Number(expenseForm.amount),
-      expense_date: expenseForm.expense_date,
-      payment_method: expenseForm.payment_method || null,
-      reference_code: expenseForm.reference_code || null,
-      location: expenseForm.location || null,
-      is_paid: expenseForm.is_paid,
-      notes: expenseForm.notes || null,
+      expenses: expensesToSubmit.map((expenseForm) => ({
+        supplier_id: expenseForm.supplier_id ? Number(expenseForm.supplier_id) : null,
+        expense_type_id: Number(expenseForm.expense_type_id),
+        description: expenseForm.description,
+        amount: Number(expenseForm.amount),
+        expense_date: expenseForm.expense_date,
+        payment_method: expenseForm.payment_method || null,
+        reference_code: expenseForm.reference_code || null,
+        location: expenseForm.location || null,
+        is_paid: expenseForm.is_paid,
+        notes: expenseForm.notes || null,
+      })),
     };
 
     try {
-      await api.post(`/owner/manifests/${manifestId}/expenses`, payload);
-      toast.success("Gasto registrado correctamente.");
+      await api.post(`/owner/manifests/${manifestId}/expenses/bulk`, payload);
+      toast.success(`${expensesToSubmit.length} gasto(s) registrado(s) correctamente.`);
       closeExpenseModal();
       setExpenseForm(EMPTY_EXPENSE_FORM);
+      setExpenseForms([]);
+      setEditingExpenseIndex(null);
       await fetchManifests(statusFilter, currentManifestPage);
     } catch (err) {
       toast.error(err.response?.data?.detail || "No fue posible registrar el gasto.");
@@ -381,10 +431,15 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       <ExpenseFormModal
         isOpen={expenseModalOpen}
         form={expenseForm}
+        expenses={expenseForms}
+        editingIndex={editingExpenseIndex}
         manifests={manifests}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
         onChange={handleExpenseInput}
+        onAdd={addExpenseForm}
+        onEdit={editExpenseForm}
+        onRemove={removeExpenseForm}
         onSubmit={submitExpense}
         onClose={closeExpenseModal}
         lockManifest={expenseManifestLocked}
