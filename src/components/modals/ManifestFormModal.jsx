@@ -10,6 +10,7 @@ export default function ManifestFormModal({
   onChange,
   onSubmit,
   onClose,
+  isEditing = false,
 }) {
   if (!isOpen) return null;
 
@@ -19,10 +20,10 @@ export default function ManifestFormModal({
         className="modal-card"
         role="dialog"
         aria-modal="true"
-        aria-label="Crear manifiesto"
+        aria-label={isEditing ? "Editar manifiesto" : "Crear manifiesto"}
         onClick={(event) => event.stopPropagation()}
       >
-        <h3>Nuevo manifiesto</h3>
+        <h3>{isEditing ? "Editar manifiesto" : "Nuevo manifiesto"}</h3>
         <form className="owner-form" onSubmit={onSubmit}>
           <div className="field">
             <label htmlFor="manifest_number">Numero de manifiesto</label>
@@ -113,8 +114,8 @@ export default function ManifestFormModal({
 
           <div className="field">
             <label htmlFor="status_id">Estado</label>
-            <select id="status_id" name="status_id" value={form.status_id} onChange={onChange}>
-              <option value="">Estado por defecto</option>
+            <select id="status_id" name="status_id" value={form.status_id} onChange={onChange} required={isEditing}>
+              <option value="">{isEditing ? "Selecciona un estado" : "Estado por defecto"}</option>
               {manifestStatuses.map((manifestStatus) => (
                 <option key={manifestStatus.id} value={manifestStatus.id}>
                   {manifestStatus.label}
@@ -123,13 +124,8 @@ export default function ManifestFormModal({
             </select>
           </div>
 
-          <label className="owner-checkbox">
-            <input name="is_closed" type="checkbox" checked={form.is_closed} onChange={onChange} />
-            Crear como ruta cerrada
-          </label>
-
           <div className="actions-row">
-            <Button type="submit">Guardar manifiesto</Button>
+            <Button type="submit">{isEditing ? "Guardar cambios" : "Guardar manifiesto"}</Button>
             <Button type="button" variant="cancel" onClick={onClose}>
               Cancelar
             </Button>

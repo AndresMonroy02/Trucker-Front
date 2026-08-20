@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -21,7 +21,14 @@ const EMPTY_MANIFEST_FORM = {
   vehicle_plate: "",
   driver_id: "",
   status_id: "",
-  is_closed: false,
+};
+
+const EMPTY_MANIFEST_FILTERS = {
+  dateFrom: "",
+  dateTo: "",
+  statusIds: [],
+  vehiclePlate: "",
+  driverId: "",
 };
 
 const EMPTY_EXPENSE_FORM = {
@@ -53,6 +60,34 @@ function formatDate(value) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
 }
 
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getManifestStatusBadgeClass(code) {
+  switch (code) {
+    case "pending":
+      return "status-pending";
+    case "in_transit":
+      return "status-in-transit";
+    case "delivered":
+      return "status-delivered";
+    case "cancelled":
+      return "status-cancelled";
+    default:
+      return "status-neutral";
+  }
+}
+
 export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState("all");
@@ -65,7 +100,11 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [manifestStatuses, setManifestStatuses] = useState([]);
   const [manifestModalOpen, setManifestModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef(null);
   const [manifestForm, setManifestForm] = useState(EMPTY_MANIFEST_FORM);
+  const [editingManifestId, setEditingManifestId] = useState(null);
+  const [manifestFilters, setManifestFilters] = useState(EMPTY_MANIFEST_FILTERS);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
   const [expenseForms, setExpenseForms] = useState([]);
   const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
@@ -74,7 +113,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   useEffect(() => {
     fetchManifests(statusFilter, currentManifestPage);
-  }, [statusFilter, currentManifestPage]);
+  }, [statusFilter, currentManifestPage, manifestFilters]);
 
   useEffect(() => {
     fetchSuppliers();
@@ -96,11 +135,50 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     fetchActiveDrivers();
   }, []);
 
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+
+    function handlePointerDown(event) {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+        setStatusDropdownOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setStatusDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [statusDropdownOpen]);
+
   const safeManifestTotalPages = Math.max(1, Math.ceil(totalManifests / MANIFEST_PAGE_SIZE));
 
-  const activeCount = useMemo(() => manifests.filter((item) => !item.is_closed).length, [manifests]);
-  const closedCount = useMemo(() => manifests.filter((item) => item.is_closed).length, [manifests]);
+  const activeCount = useMemo(
+    () => manifests.filter((item) => ["pending", "in_transit"].includes(item.status?.code)).length,
+    [manifests],
+  );
+  const closedCount = useMemo(
+    () => manifests.filter((item) => ["delivered", "cancelled"].includes(item.status?.code)).length,
+    [manifests],
+  );
   const paginatedManifests = useMemo(() => manifests, [manifests]);
+  const selectedStatusLabels = useMemo(
+    () =>
+      manifestFilters.statusIds.length === 0
+        ? ["Todos"]
+        : manifestStatuses
+            .filter((status) => manifestFilters.statusIds.includes(status.id))
+            .map((status) => status.label),
+    [manifestFilters.statusIds, manifestStatuses],
+  );
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -117,7 +195,13 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
           status,
           page,
           page_size: MANIFEST_PAGE_SIZE,
+          status_ids: manifestFilters.statusIds.length > 0 ? manifestFilters.statusIds : undefined,
+          date_from: manifestFilters.dateFrom || undefined,
+          date_to: manifestFilters.dateTo || undefined,
+          vehicle_plate: manifestFilters.vehiclePlate || undefined,
+          driver_id: manifestFilters.driverId || undefined,
         },
+        paramsSerializer: { indexes: null },
       });
       setManifests(data);
       setTotalManifests(Number(headers["x-total-count"] || data.length));
@@ -177,11 +261,30 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   function openManifestModal() {
     setManifestForm(EMPTY_MANIFEST_FORM);
+    setEditingManifestId(null);
+    setManifestModalOpen(true);
+  }
+
+  function openEditManifestModal(manifest) {
+    setManifestForm({
+      manifest_number: manifest.manifest_number,
+      origin: manifest.origin,
+      destination: manifest.destination,
+      departure_date: manifest.departure_date,
+      arrival_date: manifest.arrival_date || "",
+      cargo_description: manifest.cargo_description || "",
+      freight_value: manifest.freight_value,
+      vehicle_plate: manifest.vehicle_plate || "",
+      driver_id: manifest.driver_id || "",
+      status_id: manifest.status_id,
+    });
+    setEditingManifestId(manifest.id);
     setManifestModalOpen(true);
   }
 
   function closeManifestModal() {
     setManifestModalOpen(false);
+    setEditingManifestId(null);
   }
 
   function openExpenseModal(manifestId) {
@@ -267,6 +370,27 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     setCurrentManifestPage(1);
   }
 
+  function handleManifestFilterChange(event) {
+    const { name, value } = event.target;
+    setManifestFilters((prev) => ({ ...prev, [name]: value }));
+    setCurrentManifestPage(1);
+  }
+
+  function handleManifestStatusFilterToggle(statusId) {
+    const nextStatusIds = manifestFilters.statusIds.includes(statusId)
+      ? manifestFilters.statusIds.filter((id) => id !== statusId)
+      : [...manifestFilters.statusIds, statusId];
+
+    setManifestFilters((prev) => ({ ...prev, statusIds: nextStatusIds }));
+    setCurrentManifestPage(1);
+  }
+
+  function clearManifestFilters() {
+    setManifestFilters(EMPTY_MANIFEST_FILTERS);
+    setStatusDropdownOpen(false);
+    setCurrentManifestPage(1);
+  }
+
   async function submitManifest(event) {
     event.preventDefault();
 
@@ -281,16 +405,21 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     };
 
     try {
-      const { data } = await api.post("/owner/manifests", payload);
-      toast.success("Manifiesto creado correctamente.");
+      if (editingManifestId) {
+        await api.put(`/owner/manifests/${editingManifestId}`, payload);
+        toast.success("Manifiesto actualizado correctamente.");
+      } else {
+        await api.post("/owner/manifests", payload);
+        toast.success("Manifiesto creado correctamente.");
+      }
       closeManifestModal();
-      if (currentManifestPage !== 1) {
+      if (currentManifestPage !== 1 && !editingManifestId) {
         setCurrentManifestPage(1);
       } else {
-        await fetchManifests(statusFilter, 1);
+        await fetchManifests(statusFilter, currentManifestPage);
       }
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible crear el manifiesto.");
+      toast.error(err.response?.data?.detail || `No fue posible ${editingManifestId ? "actualizar" : "crear"} el manifiesto.`);
     }
   }
 
@@ -351,13 +480,108 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
             <p className="hint">Activos (pagina actual): {activeCount} | Cerrados (pagina actual): {closedCount} | Total: {totalManifests}</p>
           </div>
           <div className="actions-row">
-            <select value={statusFilter} onChange={handleStatusFilterChange}>
-              <option value="all">Todos</option>
-              <option value="active">Activos</option>
-              <option value="closed">Cerrados</option>
-            </select>
             <Button onClick={openManifestModal}>Crear manifiesto</Button>
           </div>
+        </div>
+
+        <div className="owner-filters-row">
+          <div className="field">
+            <label htmlFor="filter_date_from">Salida desde</label>
+            <input
+              id="filter_date_from"
+              name="dateFrom"
+              type="date"
+              value={manifestFilters.dateFrom}
+              onChange={handleManifestFilterChange}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="filter_date_to">Salida hasta</label>
+            <input
+              id="filter_date_to"
+              name="dateTo"
+              type="date"
+              value={manifestFilters.dateTo}
+              onChange={handleManifestFilterChange}
+            />
+          </div>
+          <div className="field">
+            <label>Fase</label>
+            <div className="status-dropdown" ref={statusDropdownRef}>
+              <button
+                type="button"
+                className="status-dropdown-trigger"
+                aria-expanded={statusDropdownOpen}
+                onClick={() => setStatusDropdownOpen((prev) => !prev)}
+              >
+                {selectedStatusLabels.length === 1 && selectedStatusLabels[0] === "Todos"
+                  ? "Todos"
+                  : selectedStatusLabels.join(", ") || "Todos"}
+              </button>
+              {statusDropdownOpen && (
+                <div className="status-dropdown-panel">
+                  <label className="status-dropdown-option">
+                    <input
+                      type="checkbox"
+                      checked={manifestFilters.statusIds.length === 0}
+                      onChange={() => {
+                        setManifestFilters((prev) => ({ ...prev, statusIds: [] }));
+                        setCurrentManifestPage(1);
+                      }}
+                    />
+                    <span>Todos</span>
+                  </label>
+                  {manifestStatuses.map((manifestStatus) => (
+                    <label key={manifestStatus.id} className="status-dropdown-option">
+                      <input
+                        type="checkbox"
+                        checked={manifestFilters.statusIds.includes(manifestStatus.id)}
+                        onChange={() => {
+                          handleManifestStatusFilterToggle(manifestStatus.id);
+                        }}
+                      />
+                      <span>{manifestStatus.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="filter_vehicle_plate">Vehiculo</label>
+            <select
+              id="filter_vehicle_plate"
+              name="vehiclePlate"
+              value={manifestFilters.vehiclePlate}
+              onChange={handleManifestFilterChange}
+            >
+              <option value="">Todos</option>
+              {vehicles.map((vehicle) => (
+                <option key={vehicle.plate} value={vehicle.plate}>
+                  {vehicle.plate} - {vehicle.model}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="filter_driver_id">Conductor</label>
+            <select
+              id="filter_driver_id"
+              name="driverId"
+              value={manifestFilters.driverId}
+              onChange={handleManifestFilterChange}
+            >
+              <option value="">Todos</option>
+              {drivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>
+                  {driver.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" variant="secondary" onClick={clearManifestFilters}>
+            Limpiar filtros
+          </Button>
         </div>
 
         <div className="owner-table-wrap">
@@ -368,7 +592,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
                 <th>Ruta</th>
                 <th>Vehiculo</th>
                 <th>Salida</th>
-                <th>Fase</th>
+                <th>Actualizado</th>
                 <th>Estado</th>
                 <th>Flete</th>
                 <th>Gastos</th>
@@ -383,10 +607,10 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
                   <td>{manifest.origin} - {manifest.destination}</td>
                   <td>{manifest.vehicle_plate || "-"}</td>
                   <td>{formatDate(manifest.departure_date)}</td>
-                  <td>{manifest.status?.label || "-"}</td>
+                  <td>{formatDateTime(manifest.updated_at)}</td>
                   <td>
-                    <span className={`status-badge ${manifest.is_closed ? "status-maintenance" : "status-active"}`}>
-                      {manifest.is_closed ? "Cerrada" : "Activa"}
+                    <span className={`status-badge ${getManifestStatusBadgeClass(manifest.status?.code)}`}>
+                      {manifest.status?.label || "Sin estado"}
                     </span>
                   </td>
                   <td>{formatMoney(manifest.freight_value)}</td>
@@ -396,6 +620,9 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
                     <div className="owner-row-actions">
                       <Button type="button" variant="secondary" onClick={() => navigate(`/dashboard/owner/routes/${manifest.id}`)}>
                         Detalle
+                      </Button>
+                      <Button type="button" variant="secondary" onClick={() => openEditManifestModal(manifest)}>
+                        Editar
                       </Button>
                       <Button type="button" onClick={() => openExpenseModal(manifest.id)}>
                         Agregar gasto
@@ -426,6 +653,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         onChange={handleManifestInput}
         onSubmit={submitManifest}
         onClose={closeManifestModal}
+        isEditing={Boolean(editingManifestId)}
       />
 
       <ExpenseFormModal

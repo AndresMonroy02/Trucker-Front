@@ -29,6 +29,15 @@ function formatDate(value) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
 }
 
+function profileTypeLabel(role) {
+  return {
+    owner_profile: "Propietario",
+    driver_profile: "Conductor",
+    admin: "Administrador",
+    user: "Usuario",
+  }[role] || role || "-";
+}
+
 const EMPTY_EXPENSE_FORM = {
   manifest_id: "",
   supplier_id: "",
@@ -269,8 +278,8 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
           <section className="panel owner-card manifest-info-card">
             <div className="manifest-info-header">
               <h3>Informacion del manifiesto</h3>
-              <span className={`status-badge ${manifestDetail.is_closed ? "status-maintenance" : "status-active"}`}>
-                {manifestDetail.is_closed ? "Cerrada" : "Activa"}
+              <span className={`status-badge ${["delivered", "cancelled"].includes(manifestDetail.status?.code) ? "status-maintenance" : "status-active"}`}>
+                {manifestDetail.status?.label || "Sin estado"}
               </span>
             </div>
 
@@ -330,6 +339,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                       <th>Tipo</th>
                       <th>Descripcion</th>
                       <th>Monto</th>
+                      <th>Creado por</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -339,11 +349,12 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                         <td>{expense.expense_type?.label || "-"}</td>
                         <td>{expense.description}</td>
                         <td>{formatMoney(expense.amount)}</td>
+                        <td>{profileTypeLabel(expense.created_by_profile_type)}</td>
                       </tr>
                     ))}
                     {expenses.length === 0 ? (
                       <tr>
-                        <td colSpan={4}>No hay gastos registrados para esta ruta.</td>
+                        <td colSpan={5}>No hay gastos registrados para esta ruta.</td>
                       </tr>
                     ) : null}
                   </tbody>

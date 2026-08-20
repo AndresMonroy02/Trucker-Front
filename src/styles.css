@@ -994,6 +994,78 @@ button:focus-visible,
   flex-wrap: wrap;
 }
 
+.owner-filters-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-surface-alt, transparent);
+}
+
+.owner-filters-row .field {
+  min-width: 160px;
+}
+
+.status-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.status-dropdown-trigger {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  text-align: left;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.status-dropdown-trigger:hover {
+  border-color: var(--c-focus);
+}
+
+.status-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.status-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  cursor: pointer;
+  color: var(--c-text);
+}
+
+.status-dropdown-option input {
+  margin: 0;
+  accent-color: var(--c-primary);
+}
+
 .manifest-kpi-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1253,6 +1325,36 @@ button:focus-visible,
   background: var(--c-success-bg);
   color: var(--c-success-text);
   border-color: var(--c-success-border);
+}
+
+.status-pending {
+  background: rgba(59, 130, 246, 0.14);
+  color: #7cc0ff;
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.status-in-transit {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f7c15b;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.status-delivered {
+  background: rgba(34, 197, 94, 0.14);
+  color: #7ae0a2;
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.status-cancelled {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f7a0a0;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.status-neutral {
+  background: rgba(148, 163, 184, 0.14);
+  color: #d7dfef;
+  border-color: rgba(148, 163, 184, 0.4);
 }
 
 .status-maintenance {

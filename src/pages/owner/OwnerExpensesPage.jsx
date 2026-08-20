@@ -3,9 +3,9 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { api } from "../../api";
+import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
-import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
-import ConfirmModal from "../../components/modals/ConfirmModal";
+import ExpenseEditModal from "../../components/modals/ExpenseEditModal";
 import TablePagination from "../../components/TablePagination";
 import { getDashboardPathByRole } from "../../utils/roleRouting";
 
@@ -69,6 +69,19 @@ function profileTypeLabel(role) {
   }[role] || role || "-";
 }
 
+const CREATOR_OPTIONS = [
+  { value: "", label: "Todos" },
+  { value: "owner_profile", label: "Propietario" },
+  { value: "driver_profile", label: "Conductor" },
+];
+
+const EMPTY_FILTERS = {
+  date_from: "",
+  date_to: "",
+  expense_type_id: "",
+  created_by_profile_type: "",
+};
+
 export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [expenses, setExpenses] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
@@ -79,6 +92,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
   const [editingExpense, setEditingExpense] = useState(null);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
 
   const totalPages = Math.max(1, Math.ceil(totalExpenses / PAGE_SIZE));
   const paginatedExpenses = useMemo(() => expenses, [expenses]);
@@ -92,17 +106,24 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
   }
 
   useEffect(() => {
-    fetchExpenses(currentPage);
-  }, [currentPage]);
+    fetchExpenses(currentPage, filters);
+  }, [currentPage, filters]);
 
   useEffect(() => {
     fetchEditOptions();
   }, []);
 
-  async function fetchExpenses(page) {
+  async function fetchExpenses(page, activeFilters) {
     try {
       const { data, headers } = await api.get("/owner/expenses", {
-        params: { page, page_size: PAGE_SIZE },
+        params: {
+          page,
+          page_size: PAGE_SIZE,
+          date_from: activeFilters.date_from || undefined,
+          date_to: activeFilters.date_to || undefined,
+          expense_type_id: activeFilters.expense_type_id || undefined,
+          created_by_profile_type: activeFilters.created_by_profile_type || undefined,
+        },
       });
       setExpenses(data);
       setTotalExpenses(Number(headers["x-total-count"] || data.length));
@@ -110,6 +131,18 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       toast.error(err.response?.data?.detail || "No fue posible cargar gastos.");
     }
   }
+
+  function handleFilterChange(event) {
+    const { name, value } = event.target;
+    setFilters((prev) => ({ ...prev, [name]: value }));
+    setCurrentPage(1);
+  }
+
+  function clearFilters() {
+    setFilters(EMPTY_FILTERS);
+    setCurrentPage(1);
+  }
+
 
   async function fetchEditOptions() {
     try {
@@ -162,7 +195,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       await api.put(`/owner/expenses/${editingExpense.id}`, payload);
       toast.success("Gasto actualizado correctamente.");
       closeEditExpense();
-      await fetchExpenses(currentPage);
+      await fetchExpenses(currentPage, filters);
     } catch (err) {
       toast.error(err.response?.data?.detail || "No fue posible actualizar el gasto.");
     }
@@ -185,7 +218,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       toast.success("Gasto eliminado correctamente.");
       setIsDeleteConfirmOpen(false);
       closeEditExpense();
-      await fetchExpenses(currentPage);
+      await fetchExpenses(currentPage, filters);
     } catch (err) {
       toast.error(err.response?.data?.detail || "No fue posible eliminar el gasto.");
     }
@@ -211,6 +244,49 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
             <h3>Lista de gastos</h3>
             <p className="hint">Ordenados por fecha descendente. Total: {totalExpenses}</p>
           </div>
+        </div>
+
+        <div className="owner-filters-row">
+          <div className="field">
+            <label htmlFor="filter_date_from">Desde</label>
+            <input
+              id="filter_date_from"
+              type="date"
+              name="date_from"
+              value={filters.date_from}
+              onChange={handleFilterChange}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="filter_date_to">Hasta</label>
+            <input
+              id="filter_date_to"
+              type="date"
+              name="date_to"
+              value={filters.date_to}
+              onChange={handleFilterChange}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="filter_expense_type">Tipo de gasto</label>
+            <select id="filter_expense_type" name="expense_type_id" value={filters.expense_type_id} onChange={handleFilterChange}>
+              <option value="">Todos</option>
+              {expenseTypes.map((type) => (
+                <option key={type.id} value={type.id}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="filter_creator">Creado por</label>
+            <select id="filter_creator" name="created_by_profile_type" value={filters.created_by_profile_type} onChange={handleFilterChange}>
+              {CREATOR_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" variant="secondary" onClick={clearFilters}>
+            Limpiar filtros
+          </Button>
         </div>
 
         <div className="owner-table-wrap">
@@ -259,32 +335,19 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
         />
       </section>
 
-      <ExpenseFormModal
+      <ExpenseEditModal
         isOpen={Boolean(editingExpense)}
         form={expenseForm}
-        expenses={[]}
-        editingIndex={null}
         manifests={manifests}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
         onChange={handleExpenseInput}
         onSubmit={submitExpenseEdit}
         onClose={closeEditExpense}
-        onAdd={() => undefined}
-        onEdit={() => undefined}
-        onRemove={() => undefined}
         onDelete={requestDeleteExpense}
-        isEditingExisting
-      />
-
-      <ConfirmModal
-        isOpen={isDeleteConfirmOpen}
-        title="Eliminar gasto"
-        message="¿Está seguro de eliminar este gasto? Esta acción no se puede deshacer."
-        confirmLabel="Eliminar"
-        cancelLabel="Cancelar"
-        onConfirm={confirmDeleteExpense}
-        onCancel={cancelDeleteExpense}
+        isDeleteConfirmOpen={isDeleteConfirmOpen}
+        onConfirmDelete={confirmDeleteExpense}
+        onCancelDelete={cancelDeleteExpense}
       />
     </DashboardShell>
   );

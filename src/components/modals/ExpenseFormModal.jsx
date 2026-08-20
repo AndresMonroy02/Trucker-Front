@@ -45,7 +45,7 @@ export default function ExpenseFormModal({
               <option value="">Selecciona un manifiesto</option>
               {manifests.map((manifest) => (
                 <option key={manifest.id} value={manifest.id}>
-                  {manifest.manifest_number} ({manifest.is_closed ? "Cerrada" : "Activa"})
+                  {manifest.manifest_number} ({manifest.status?.label || "Sin estado"})
                 </option>
               ))}
             </select>
