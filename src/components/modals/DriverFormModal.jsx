@@ -4,6 +4,7 @@ export default function DriverFormModal({
   isOpen,
   form,
   driverStatuses,
+  driverAccounts = [],
   onChange,
   onSubmit,
   onClose,
@@ -44,6 +45,18 @@ export default function DriverFormModal({
               {driverStatuses.map((driverStatus) => (
                 <option key={driverStatus.id} value={driverStatus.id}>
                   {driverStatus.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="driver_user_id">Cuenta de conductor (opcional)</label>
+            <select id="driver_user_id" name="user_id" value={form.user_id} onChange={onChange}>
+              <option value="">Sin cuenta asignada</option>
+              {driverAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.username} ({account.email})
                 </option>
               ))}
             </select>

@@ -58,6 +58,10 @@ function getSidebarGroups(role) {
         items: [{ to: "/dashboard/driver", label: "Panel principal", icon: "PN" }],
       },
       {
+        title: "Operacion",
+        items: [{ to: "/dashboard/driver/manifests", label: "Mis manifiestos", icon: "MF" }],
+      },
+      {
         title: "Cuenta",
         items: [{ to: "/dashboard/profile", label: "Mi perfil", icon: "PF" }],
       },

@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api, setAuthToken } from "./api";
+import { api, setAuthToken, setUnauthorizedHandler } from "./api";
 import AdminDashboardPage from "./pages/owner/AdminDashboardPage";
 import DashboardPage from "./pages/auth/DashboardPage";
 import DriverDashboardPage from "./pages/driver/DriverDashboardPage";
+import DriverManifestDetailPage from "./pages/driver/DriverManifestDetailPage";
+import DriverManifestsPage from "./pages/driver/DriverManifestsPage";
 import GeneralDashboardPage from "./pages/auth/GeneralDashboardPage";
 import LoginPage from "./pages/auth/LoginPage";
 import OwnerDriversPage from "./pages/owner/OwnerDriversPage";
@@ -77,6 +79,14 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setToken("");
+      toast.error("La sesion expiro. Vuelve a iniciar sesion.");
+      navigate("/login", { replace: true });
+    });
+  }, [navigate]);
+
+  useEffect(() => {
     if (token) {
       fetchProfile();
     } else {
@@ -90,8 +100,7 @@ export default function App() {
       const { data } = await api.get("/users/me");
       setMe(data);
     } catch {
-      toast.error("La sesion expiro. Vuelve a iniciar sesion.");
-      setToken("");
+      // handled globally by the unauthorized handler for 401s; other errors are ignored here
     }
   }
 
@@ -253,6 +262,30 @@ export default function App() {
             path="/dashboard/driver"
             element={
               <DriverDashboardPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/driver/manifests"
+            element={
+              <DriverManifestsPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/driver/manifests/:manifestId"
+            element={
+              <DriverManifestDetailPage
                 token={token}
                 me={me}
                 theme={theme}

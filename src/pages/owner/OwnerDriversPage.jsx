@@ -14,6 +14,7 @@ const INITIAL_FORM = {
   license: "",
   phone: "",
   status_id: "",
+  user_id: "",
 };
 
 const PAGE_SIZE = 8;
@@ -22,6 +23,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
   const [drivers, setDrivers] = useState([]);
   const [totalDrivers, setTotalDrivers] = useState(0);
   const [driverStatuses, setDriverStatuses] = useState([]);
+  const [driverAccounts, setDriverAccounts] = useState([]);
   const [form, setForm] = useState(INITIAL_FORM);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,8 +68,18 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
     }
   }
 
+  async function fetchDriverAccounts() {
+    try {
+      const { data } = await api.get("/owner/driver-accounts");
+      setDriverAccounts(data);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible cargar las cuentas de conductor.");
+    }
+  }
+
   function openModal() {
     setForm(INITIAL_FORM);
+    fetchDriverAccounts();
     setIsModalOpen(true);
   }
 
@@ -98,7 +110,13 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
     }
 
     try {
-      await api.post("/owner/drivers", { name, license, phone, status_id: Number(form.status_id) });
+      await api.post("/owner/drivers", {
+        name,
+        license,
+        phone,
+        status_id: Number(form.status_id),
+        user_id: form.user_id ? Number(form.user_id) : null,
+      });
       if (currentPage !== 1) {
         setCurrentPage(1);
       } else {
@@ -137,6 +155,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
                 <th>Licencia</th>
                 <th>Telefono</th>
                 <th>Estado</th>
+                <th>Cuenta</th>
               </tr>
             </thead>
             <tbody>
@@ -150,6 +169,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
                       {driver.status?.label || "-"}
                     </span>
                   </td>
+                  <td>{driver.user_id ? "Vinculada" : "Sin cuenta"}</td>
                 </tr>
               ))}
             </tbody>
@@ -169,6 +189,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
         isOpen={isModalOpen}
         form={form}
         driverStatuses={driverStatuses}
+        driverAccounts={driverAccounts}
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         onClose={closeModal}
