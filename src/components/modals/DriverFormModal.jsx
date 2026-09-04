@@ -8,6 +8,8 @@ export default function DriverFormModal({
   onChange,
   onSubmit,
   onClose,
+  onDelete,
+  isEditing = false,
 }) {
   if (!isOpen) return null;
 
@@ -17,10 +19,10 @@ export default function DriverFormModal({
         className="modal-card"
         role="dialog"
         aria-modal="true"
-        aria-label="Crear conductor"
+        aria-label={isEditing ? "Editar conductor" : "Crear conductor"}
         onClick={(event) => event.stopPropagation()}
       >
-        <h3>Nuevo conductor</h3>
+        <h3>{isEditing ? "Editar conductor" : "Nuevo conductor"}</h3>
         <form className="owner-form" onSubmit={onSubmit}>
           <div className="field">
             <label htmlFor="driver_name">Nombre</label>
@@ -54,6 +56,9 @@ export default function DriverFormModal({
             <label htmlFor="driver_user_id">Cuenta de conductor (opcional)</label>
             <select id="driver_user_id" name="user_id" value={form.user_id} onChange={onChange}>
               <option value="">Sin cuenta asignada</option>
+              {isEditing && form.user_id && !driverAccounts.some((account) => String(account.id) === form.user_id) && (
+                <option value={form.user_id}>Cuenta actual vinculada</option>
+              )}
               {driverAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.username} ({account.email})
@@ -63,7 +68,12 @@ export default function DriverFormModal({
           </div>
 
           <div className="actions-row">
-            <Button type="submit">Guardar conductor</Button>
+            <Button type="submit">{isEditing ? "Guardar cambios" : "Guardar conductor"}</Button>
+            {isEditing && onDelete && (
+              <Button type="button" variant="cancel" onClick={onDelete}>
+                Eliminar conductor
+              </Button>
+            )}
             <Button type="button" variant="cancel" onClick={onClose}>
               Cancelar
             </Button>

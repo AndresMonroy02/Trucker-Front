@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { api } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
+import ConfirmModal from "../../components/modals/ConfirmModal";
+import VehicleFormModal from "../../components/modals/VehicleFormModal";
 import TablePagination from "../../components/TablePagination";
 import { getDashboardPathByRole } from "../../utils/roleRouting";
 
@@ -31,15 +33,18 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
   const [vehicleStatuses, setVehicleStatuses] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVehiclePlate, setEditingVehiclePlate] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const totalPages = Math.max(1, Math.ceil(totalVehicles / PAGE_SIZE));
   const paginatedVehicles = useMemo(() => vehicles, [vehicles]);
 
   useEffect(() => {
-    fetchVehicles(currentPage);
-  }, [currentPage]);
+    fetchVehicles(currentPage, statusFilter);
+  }, [currentPage, statusFilter]);
 
   useEffect(() => {
     fetchVehicleStatuses();
@@ -59,10 +64,10 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
     return <Navigate to={getDashboardPathByRole(me.role)} replace />;
   }
 
-  async function fetchVehicles(page) {
+  async function fetchVehicles(page, statusValue) {
     try {
       const { data, headers } = await api.get("/owner/vehicles", {
-        params: { page, page_size: PAGE_SIZE },
+        params: { page, page_size: PAGE_SIZE, status: statusValue },
       });
       setVehicles(data);
       setTotalVehicles(Number(headers["x-total-count"] || data.length));
@@ -96,16 +101,40 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
 
   function openModal() {
     setForm(INITIAL_FORM);
+    setEditingVehiclePlate(null);
+    setIsModalOpen(true);
+  }
+
+  function openEditModal(vehicle) {
+    setForm({
+      plate: vehicle.plate,
+      model: vehicle.model,
+      year: vehicle.year,
+      status_id: String(vehicle.status_id),
+      driver_id: vehicle.driver_id ? String(vehicle.driver_id) : "",
+    });
+    setEditingVehiclePlate(vehicle.plate);
     setIsModalOpen(true);
   }
 
   function closeModal() {
     setIsModalOpen(false);
+    setEditingVehiclePlate(null);
   }
 
   function handleInputChange(event) {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleStatusFilterChange(event) {
+    setStatusFilter(event.target.value);
+    setCurrentPage(1);
+  }
+
+  function clearFilters() {
+    setStatusFilter("active");
+    setCurrentPage(1);
   }
 
   async function handleSubmit(event) {
@@ -123,16 +152,40 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
     };
 
     try {
-      await api.post("/owner/vehicles", payload);
-      if (currentPage !== 1) {
-        setCurrentPage(1);
+      if (editingVehiclePlate) {
+        const { plate, ...updatePayload } = payload;
+        await api.put(`/owner/vehicles/${encodeURIComponent(editingVehiclePlate)}`, updatePayload);
+        toast.success("Vehiculo actualizado correctamente.");
+        await fetchVehicles(currentPage, statusFilter);
       } else {
-        await fetchVehicles(1);
+        await api.post("/owner/vehicles", payload);
+        toast.success("Vehiculo creado correctamente.");
+        if (currentPage !== 1) {
+          setCurrentPage(1);
+        } else {
+          await fetchVehicles(1, statusFilter);
+        }
       }
-      toast.success("Vehiculo creado correctamente.");
       closeModal();
     } catch (err) {
       toast.error(err.response?.data?.detail || "No fue posible crear el vehiculo.");
+    }
+  }
+
+  function requestDelete(plate) {
+    setDeleteTarget(plate);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/owner/vehicles/${encodeURIComponent(deleteTarget)}`);
+      toast.success("Vehiculo eliminado correctamente.");
+      setDeleteTarget(null);
+      closeModal();
+      await fetchVehicles(currentPage, statusFilter);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible eliminar el vehiculo.");
     }
   }
 
@@ -154,6 +207,20 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
           <Button onClick={openModal}>Crear nuevo vehiculo</Button>
         </div>
 
+        <div className="owner-filters-row">
+          <div className="field">
+            <label htmlFor="vehicle_status_filter">Estado</label>
+            <select id="vehicle_status_filter" value={statusFilter} onChange={handleStatusFilterChange}>
+              <option value="active">Activos</option>
+              <option value="deleted">Eliminados</option>
+              <option value="all">Todos</option>
+            </select>
+          </div>
+          <Button type="button" variant="secondary" onClick={clearFilters}>
+            Limpiar filtros
+          </Button>
+        </div>
+
         <div className="owner-table-wrap">
           <table className="owner-table">
             <thead>
@@ -164,9 +231,13 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
                 <th>Estado</th>
                 <th>Conductor</th>
                 <th>Creado</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
+              {paginatedVehicles.length === 0 && (
+                <tr><td colSpan={7} className="hint">No hay vehiculos para los filtros seleccionados.</td></tr>
+              )}
               {paginatedVehicles.map((vehicle) => (
                 <tr key={vehicle.plate}>
                   <td>{vehicle.plate}</td>
@@ -179,6 +250,11 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
                   </td>
                   <td>{vehicle.driver?.name || vehicle.driver_name || "-"}</td>
                   <td>{formatDate(vehicle.created_at)}</td>
+                  <td>
+                    <button type="button" className="table-action-button" onClick={() => openEditModal(vehicle)}>
+                      Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -194,65 +270,27 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
         />
       </section>
 
-      {isModalOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={closeModal}>
-          <section
-            className="modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Crear nuevo vehiculo"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3>Nuevo vehiculo</h3>
-            <form className="owner-form" onSubmit={handleSubmit}>
-              <div className="field">
-                <label htmlFor="plate">Placa</label>
-                <input id="plate" name="plate" value={form.plate} onChange={handleInputChange} required />
-              </div>
+      <VehicleFormModal
+        isOpen={isModalOpen}
+        form={form}
+        vehicleStatuses={vehicleStatuses}
+        drivers={drivers}
+        onChange={handleInputChange}
+        onSubmit={handleSubmit}
+        onClose={closeModal}
+        isEditing={Boolean(editingVehiclePlate)}
+        onDelete={editingVehiclePlate ? () => requestDelete(editingVehiclePlate) : undefined}
+      />
 
-              <div className="field">
-                <label htmlFor="model">Modelo</label>
-                <input id="model" name="model" value={form.model} onChange={handleInputChange} required />
-              </div>
-
-              <div className="owner-inline-fields">
-                <div className="field">
-                  <label htmlFor="year">Ano</label>
-                  <input id="year" name="year" value={form.year} onChange={handleInputChange} required />
-                </div>
-                <div className="field">
-                  <label htmlFor="status">Estado</label>
-                  <select id="status" name="status_id" value={form.status_id} onChange={handleInputChange} required>
-                    <option value="">Selecciona un estado</option>
-                    {vehicleStatuses.map((vehicleStatus) => (
-                      <option key={vehicleStatus.id} value={vehicleStatus.id}>
-                        {vehicleStatus.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="field">
-                <label htmlFor="driver_id">Conductor</label>
-                <select id="driver_id" name="driver_id" value={form.driver_id} onChange={handleInputChange}>
-                  <option value="">Sin conductor asignado</option>
-                  {drivers.map((driver) => (
-                    <option key={driver.id} value={driver.id}>
-                      {driver.name} - {driver.license}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="actions-row">
-                <Button type="submit">Guardar vehiculo</Button>
-                <Button type="button" variant="cancel" onClick={closeModal}>Cancelar</Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Eliminar vehiculo"
+        message="Esta seguro de eliminar este vehiculo? Podra seguir viendolo en el filtro de eliminados."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </DashboardShell>
   );
 }
