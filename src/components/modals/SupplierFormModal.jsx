@@ -3,10 +3,12 @@ import Button from "../Button";
 export default function SupplierFormModal({
   isOpen,
   form,
-  supplierTypes,
+  expenseTypes,
   onChange,
   onSubmit,
   onClose,
+  onDelete,
+  isEditing = false,
 }) {
   if (!isOpen) return null;
 
@@ -16,10 +18,10 @@ export default function SupplierFormModal({
         className="modal-card"
         role="dialog"
         aria-modal="true"
-        aria-label="Crear proveedor"
+        aria-label={isEditing ? "Editar proveedor" : "Crear proveedor"}
         onClick={(event) => event.stopPropagation()}
       >
-        <h3>Nuevo proveedor</h3>
+        <h3>{isEditing ? "Editar proveedor" : "Nuevo proveedor"}</h3>
         <form className="owner-form" onSubmit={onSubmit}>
           <div className="owner-inline-fields">
             <div className="field">
@@ -27,12 +29,12 @@ export default function SupplierFormModal({
               <input id="supplier_name" name="name" value={form.name} onChange={onChange} required />
             </div>
             <div className="field">
-              <label htmlFor="supplier_type_id">Tipo</label>
-              <select id="supplier_type_id" name="supplier_type_id" value={form.supplier_type_id} onChange={onChange} required>
-                <option value="">Selecciona un tipo</option>
-                {supplierTypes.map((supplierType) => (
-                  <option key={supplierType.id} value={supplierType.id}>
-                    {supplierType.label}
+              <label htmlFor="expense_type_id">Categoria</label>
+              <select id="expense_type_id" name="expense_type_id" value={form.expense_type_id} onChange={onChange} required>
+                <option value="">Selecciona una categoria</option>
+                {expenseTypes.map((expenseType) => (
+                  <option key={expenseType.id} value={expenseType.id}>
+                    {expenseType.label}
                   </option>
                 ))}
               </select>
@@ -72,7 +74,12 @@ export default function SupplierFormModal({
           </label>
 
           <div className="actions-row">
-            <Button type="submit">Guardar proveedor</Button>
+            <Button type="submit">{isEditing ? "Guardar cambios" : "Guardar proveedor"}</Button>
+            {isEditing && onDelete && (
+              <Button type="button" variant="cancel" onClick={onDelete}>
+                Eliminar proveedor
+              </Button>
+            )}
             <Button type="button" variant="cancel" onClick={onClose}>
               Cancelar
             </Button>
