@@ -30,3 +30,27 @@ api.interceptors.response.use(
   }
 );
 
+export function activateAccount(token) {
+  return api.post("/auth/activate", { token });
+}
+
+export function setPasswordWithToken(token, newPassword) {
+  return api.post("/auth/set-password", { token, new_password: newPassword });
+}
+
+export function resendActivation(username) {
+  return api.post("/auth/resend-activation", { username });
+}
+
+export function sendDriverInvite(driverId) {
+  return api.post(`/owner/drivers/${driverId}/send-invite`);
+}
+
+export function getInvitationStatus(token) {
+  return api.get("/auth/invitation-status", { params: { token } });
+}
+
+export function fetchEmailLogs(params) {
+  return api.get("/owner/email-logs", { params });
+}
+

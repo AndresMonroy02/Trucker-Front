@@ -45,6 +45,7 @@ function getSidebarGroups(role) {
           { to: "/dashboard/owner/suppliers", label: "Proveedores", icon: "PR" },
           { to: "/dashboard/owner/vehicles", label: "Vehiculos", icon: "VH" },
           { to: "/dashboard/owner/drivers", label: "Conductores", icon: "CD" },
+        { to: "/dashboard/owner/emails", label: "Correos", icon: "CO" },
         ],
       },
       {

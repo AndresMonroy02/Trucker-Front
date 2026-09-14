@@ -6,7 +6,7 @@ import { api } from "../../api";
 import { parseApiFieldErrors, validateRegister } from "../../utils/validation";
 
 const fields = [
-  { name: "username", label: "Usuario", type: "text", placeholder: "tu-usuario", required: true },
+  { name: "username", label: "Usuario", type: "text", placeholder: "sin espacios", required: true },
   { name: "email", label: "Correo", type: "email", placeholder: "tu@correo.com", required: true },
   { name: "password", label: "Contrasena", type: "password", placeholder: "minimo 6 caracteres", required: true },
   {
@@ -44,7 +44,7 @@ export default function RegisterPage({ token, values, setValues, errors, setErro
 
     try {
       const { data } = await api.post("/auth/register", values);
-      toast.success(`Usuario ${data.username} creado. Inicia sesion.`);
+      toast.success(`Usuario ${data.username} creado. Revisa tu correo para activar la cuenta.`);
       setValues({ username: "", email: "", password: "", role: "owner_profile" });
       navigate("/login");
     } catch (err) {

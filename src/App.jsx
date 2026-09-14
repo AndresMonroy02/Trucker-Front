@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import { toast } from "sonner";
 
 import { api, setAuthToken, setUnauthorizedHandler } from "./api";
+import ActivateAccountPage from "./pages/auth/ActivateAccountPage";
 import AdminDashboardPage from "./pages/owner/AdminDashboardPage";
 import DashboardPage from "./pages/auth/DashboardPage";
 import DriverDashboardPage from "./pages/driver/DriverDashboardPage";
@@ -18,7 +19,9 @@ import OwnerManifestDetailPage from "./pages/owner/OwnerManifestDetailPage";
 import OwnerVehiclesPage from "./pages/owner/OwnerVehiclesPage";
 import OwnerRoutesPage from "./pages/owner/OwnerRoutesPage";
 import OwnerSuppliersPage from "./pages/owner/OwnerSuppliersPage";
+import OwnerEmailLogsPage from "./pages/owner/OwnerEmailLogsPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import SetPasswordPage from "./pages/auth/SetPasswordPage";
 import logo from "./assets/trucker_no_text.png";
 import { getDashboardPathByRole } from "./utils/roleRouting";
 
@@ -170,6 +173,8 @@ export default function App() {
               />
             }
           />
+          <Route path="/activate" element={<ActivateAccountPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
           <Route
             path="/dashboard"
             element={<DashboardPage token={token} me={me} />}
@@ -238,6 +243,18 @@ export default function App() {
             path="/dashboard/owner/suppliers"
             element={
               <OwnerSuppliersPage
+                token={token}
+                me={me}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onLogout={logout}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/owner/emails"
+            element={
+              <OwnerEmailLogsPage
                 token={token}
                 me={me}
                 theme={theme}

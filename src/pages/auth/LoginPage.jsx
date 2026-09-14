@@ -2,11 +2,11 @@ import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import AuthForm from "../../components/AuthForm";
-import { api } from "../../api";
+import { api, resendActivation } from "../../api";
 import { parseApiFieldErrors, validateLogin } from "../../utils/validation";
 
 const fields = [
-  { name: "username", label: "Usuario", type: "text", placeholder: "tu-usuario", required: true },
+  { name: "username", label: "Usuario o correo", type: "text", placeholder: "tu-usuario o tu@correo.com", required: true },
   { name: "password", label: "Contrasena", type: "password", placeholder: "******", required: true },
 ];
 
@@ -43,7 +43,14 @@ export default function LoginPage({ token, values, setValues, errors, setErrors,
       toast.success("Inicio de sesion exitoso.");
     } catch (err) {
       const detail = err.response?.data?.detail;
-      if (Array.isArray(detail)) {
+      if (err.response?.status === 403) {
+        toast.error(detail || "La cuenta no ha sido activada.", {
+          action: {
+            label: "Reenviar correo",
+            onClick: () => resendActivation(values.username).then(() => toast.success("Correo de activacion enviado.")),
+          },
+        });
+      } else if (Array.isArray(detail)) {
         setErrors(parseApiFieldErrors(detail));
         toast.error("Error de validacion. Revisa tus datos.");
       } else {

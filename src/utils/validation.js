@@ -1,8 +1,9 @@
 export function validateLogin(values) {
   const errors = {};
 
+  // The login box accepts either a username or an email address.
   if (!values.username || values.username.trim().length < 3) {
-    errors.username = "El usuario debe tener al menos 3 caracteres.";
+    errors.username = "Ingresa tu usuario o correo.";
   }
 
   if (!values.password || values.password.length < 6) {
@@ -12,10 +13,32 @@ export function validateLogin(values) {
   return errors;
 }
 
+export function isValidEmail(value) {
+  return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+export function validateUsername(value) {
+  const cleaned = (value || "").trim();
+  if (cleaned.length < 3) {
+    return "El usuario debe tener al menos 3 caracteres.";
+  }
+  if (/\s/.test(cleaned)) {
+    return "El usuario no puede contener espacios.";
+  }
+  return "";
+}
+
 export function validateRegister(values) {
   const errors = validateLogin(values);
 
-  if (!values.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+  const usernameError = validateUsername(values.username);
+  if (usernameError) {
+    errors.username = usernameError;
+  } else {
+    delete errors.username;
+  }
+
+  if (!isValidEmail(values.email)) {
     errors.email = "Ingresa un correo valido.";
   }
 

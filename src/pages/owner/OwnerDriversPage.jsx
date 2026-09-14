@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, sendDriverInvite } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import DriverFormModal from "../../components/modals/DriverFormModal";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import TablePagination from "../../components/TablePagination";
 import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { isValidEmail } from "../../utils/validation";
 
 const INITIAL_FORM = {
   name: "",
@@ -16,9 +17,61 @@ const INITIAL_FORM = {
   phone: "",
   status_id: "",
   user_id: "",
+  account_mode: "new",
+  account_username: "",
+  account_email: "",
 };
 
 const PAGE_SIZE = 8;
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// What the owner needs to know at a glance: can this driver log in yet, and if not, why.
+function getAccountBadge(driver) {
+  if (!driver.user_id) {
+    return { label: "Sin cuenta", className: "status-neutral", title: "" };
+  }
+  if (driver.account_is_active) {
+    return { label: "Activada", className: "status-active", title: "El conductor ya configuro su contrasena." };
+  }
+  if (driver.last_invite_state === "failed") {
+    return {
+      label: "Envio fallido",
+      className: "status-maintenance",
+      title: driver.last_invite_error || "No fue posible enviar la invitacion.",
+    };
+  }
+  if (driver.last_invite_state === "expired") {
+    return {
+      label: "Invitacion vencida",
+      className: "status-in-transit",
+      title: `Vencio el ${formatDateTime(driver.invite_expires_at)}`,
+    };
+  }
+  if (driver.last_invite_state === "pending") {
+    return {
+      label: "Invitacion enviada",
+      className: "status-pending",
+      title: `Enviada el ${formatDateTime(driver.last_invite_sent_at)}. Vence el ${formatDateTime(driver.invite_expires_at)}`,
+    };
+  }
+  return { label: "Pendiente", className: "status-pending", title: "" };
+}
+
+function canResendInvite(driver) {
+  return Boolean(driver?.user_id) && !driver?.account_is_active;
+}
 
 export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [drivers, setDrivers] = useState([]);
@@ -27,7 +80,8 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
   const [driverAccounts, setDriverAccounts] = useState([]);
   const [form, setForm] = useState(INITIAL_FORM);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDriverId, setEditingDriverId] = useState(null);
+  const [editingDriver, setEditingDriver] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("active");
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -83,7 +137,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
 
   function openModal() {
     setForm(INITIAL_FORM);
-    setEditingDriverId(null);
+    setEditingDriver(null);
     fetchDriverAccounts();
     setIsModalOpen(true);
   }
@@ -95,15 +149,18 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       phone: driver.phone,
       status_id: String(driver.status_id),
       user_id: driver.user_id ? String(driver.user_id) : "",
+      account_mode: driver.user_id ? "existing" : "none",
+      account_username: "",
+      account_email: "",
     });
-    setEditingDriverId(driver.id);
+    setEditingDriver(driver);
     fetchDriverAccounts();
     setIsModalOpen(true);
   }
 
   function closeModal() {
     setIsModalOpen(false);
-    setEditingDriverId(null);
+    setEditingDriver(null);
   }
 
   function handlePageChange(nextPage) {
@@ -112,8 +169,8 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
   }
 
   function handleInputChange(event) {
-    const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = event.target;
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   }
 
   function handleStatusFilterChange(event) {
@@ -139,25 +196,69 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
     }
 
     try {
+      if (editingDriver) {
+        // Editing never touches the account link; use Reenviar for the invitation.
+        const payload = { name, license, phone, status_id: Number(form.status_id) };
+        await api.put(`/owner/drivers/${editingDriver.id}`, payload);
+        toast.success("Conductor actualizado correctamente.");
+        await fetchDrivers(currentPage, statusFilter);
+        closeModal();
+        return;
+      }
+
       const payload = {
         name,
         license,
         phone,
         status_id: Number(form.status_id),
-        user_id: form.user_id ? Number(form.user_id) : null,
       };
-      if (editingDriverId) {
-        await api.put(`/owner/drivers/${editingDriverId}`, payload);
-        toast.success("Conductor actualizado correctamente.");
-        await fetchDrivers(currentPage, statusFilter);
-      } else {
-        await api.post("/owner/drivers", payload);
-        toast.success("Conductor creado correctamente.");
-        if (currentPage !== 1) {
-          setCurrentPage(1);
-        } else {
-          await fetchDrivers(1, statusFilter);
+
+      if (form.account_mode === "existing") {
+        if (!form.user_id) {
+          toast.error("Selecciona la cuenta de conductor que quieres vincular.");
+          return;
         }
+        payload.user_id = Number(form.user_id);
+      } else {
+        const accountUsername = form.account_username.trim();
+        const accountEmail = form.account_email.trim();
+        if (!accountUsername || !accountEmail) {
+          toast.error("Usuario y correo son obligatorios para crear la cuenta del conductor.");
+          return;
+        }
+        if (/\s/.test(accountUsername)) {
+          toast.error("El usuario no puede contener espacios.");
+          return;
+        }
+        if (accountUsername.length < 3) {
+          toast.error("El usuario debe tener al menos 3 caracteres.");
+          return;
+        }
+        if (!isValidEmail(accountEmail)) {
+          toast.error("Ingresa un correo valido.");
+          return;
+        }
+        payload.account_username = accountUsername;
+        payload.account_email = accountEmail;
+      }
+
+      const { data } = await api.post("/owner/drivers", payload);
+      if (data?.last_invite_state === "failed") {
+        toast.warning(
+          data.last_invite_error
+            ? `Conductor creado, pero el correo fallo: ${data.last_invite_error}`
+            : "Conductor creado, pero no fue posible enviar la invitacion. Reenviala desde la tabla.",
+        );
+      } else if (data?.user_id && !data?.account_is_active) {
+        toast.success("Conductor creado. Se envio la invitacion por correo.");
+      } else {
+        toast.success("Conductor creado correctamente.");
+      }
+
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        await fetchDrivers(1, statusFilter);
       }
       closeModal();
     } catch (err) {
@@ -167,6 +268,20 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
 
   function requestDelete(driverId) {
     setDeleteTarget(driverId);
+  }
+
+  async function handleSendInvite(driverId) {
+    if (!driverId) return;
+    setResendingId(driverId);
+    try {
+      await sendDriverInvite(driverId);
+      toast.success("Invitacion reenviada al conductor.");
+      await fetchDrivers(currentPage, statusFilter);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "No fue posible enviar la invitacion.");
+    } finally {
+      setResendingId(null);
+    }
   }
 
   async function confirmDelete() {
@@ -219,6 +334,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
             <thead>
               <tr>
                 <th>Nombre</th>
+                <th>Correo</th>
                 <th>Licencia</th>
                 <th>Telefono</th>
                 <th>Estado</th>
@@ -228,26 +344,46 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
             </thead>
             <tbody>
               {paginatedDrivers.length === 0 && (
-                <tr><td colSpan={6} className="hint">No hay conductores para los filtros seleccionados.</td></tr>
+                <tr><td colSpan={7} className="hint">No hay conductores para los filtros seleccionados.</td></tr>
               )}
-              {paginatedDrivers.map((driver) => (
-                <tr key={driver.id}>
-                  <td>{driver.name}</td>
-                  <td>{driver.license}</td>
-                  <td>{driver.phone}</td>
-                  <td>
-                    <span className={`status-badge ${driver.status?.code === "available" ? "status-active" : "status-maintenance"}`}>
-                      {driver.status?.label || "-"}
-                    </span>
-                  </td>
-                  <td>{driver.user_id ? "Vinculada" : "Sin cuenta"}</td>
-                  <td>
-                    <button type="button" className="table-action-button" onClick={() => openEditModal(driver)}>
-                      Editar
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {paginatedDrivers.map((driver) => {
+                const accountBadge = getAccountBadge(driver);
+                return (
+                  <tr key={driver.id}>
+                    <td>{driver.name}</td>
+                    <td>{driver.account_email || "-"}</td>
+                    <td>{driver.license}</td>
+                    <td>{driver.phone}</td>
+                    <td>
+                      <span className={`status-badge ${driver.status?.code === "available" ? "status-active" : "status-maintenance"}`}>
+                        {driver.status?.label || "-"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${accountBadge.className}`} title={accountBadge.title}>
+                        {accountBadge.label}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="owner-row-actions">
+                        <button type="button" className="table-action-button" onClick={() => openEditModal(driver)}>
+                          Editar
+                        </button>
+                        {canResendInvite(driver) && (
+                          <button
+                            type="button"
+                            className="table-action-button"
+                            disabled={resendingId === driver.id}
+                            onClick={() => handleSendInvite(driver.id)}
+                          >
+                            {resendingId === driver.id ? "Enviando..." : "Reenviar"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -269,8 +405,10 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         onClose={closeModal}
-        isEditing={Boolean(editingDriverId)}
-        onDelete={editingDriverId ? () => requestDelete(editingDriverId) : undefined}
+        isEditing={Boolean(editingDriver)}
+        canResendInvite={canResendInvite(editingDriver)}
+        onDelete={editingDriver ? () => requestDelete(editingDriver.id) : undefined}
+        onSendInvite={editingDriver ? () => handleSendInvite(editingDriver.id) : undefined}
       />
 
       <ConfirmModal
