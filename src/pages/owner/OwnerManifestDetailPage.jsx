@@ -1,33 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatDate, formatMoney } from "../../utils/format";
 
 const PAGE_SIZE = 10;
 
 const PIE_COLORS_LIGHT = ["#2d7dd2", "#3ea6d6", "#4bbf92", "#f0b45a", "#dc7b62", "#8e79d7"];
 const PIE_COLORS_DARK = ["#55a6ff", "#76c1ff", "#63d4b1", "#f4c97b", "#f09785", "#ab98ea"];
-
-function formatMoney(value) {
-  const parsed = Number(value || 0);
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(parsed) ? parsed : 0);
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
-}
 
 function profileTypeLabel(role) {
   return {
@@ -82,14 +68,6 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
   const chartTotal = useMemo(() => pieData.reduce((sum, item) => sum + item.value, 0), [pieData]);
   const pieColors = theme === "dark" ? PIE_COLORS_DARK : PIE_COLORS_LIGHT;
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
-
   useEffect(() => {
     if (!manifestId) return;
     fetchManifestDetail(manifestId, currentPage);
@@ -116,7 +94,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       setManifestDetail(data);
       setTotalExpenses(Number(headers["x-total-count"] || data.expenses?.length || 0));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar el detalle del manifiesto.");
+      toast.error(getErrorMessage(err, "No fue posible cargar el detalle del manifiesto."));
     }
   }
 
@@ -125,7 +103,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       const { data } = await api.get(`/owner/manifests/${id}/expenses/summary-by-type`);
       setExpenseTypeSummary(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar el resumen de gastos por tipo.");
+      toast.error(getErrorMessage(err, "No fue posible cargar el resumen de gastos por tipo."));
     }
   }
 
@@ -136,7 +114,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       });
       setSuppliers(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar proveedores.");
+      toast.error(getErrorMessage(err, "No fue posible cargar proveedores."));
     }
   }
 
@@ -145,7 +123,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       const { data } = await api.get("/owner/expense-types");
       setExpenseTypes(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los tipos de gasto.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los tipos de gasto."));
     }
   }
 
@@ -233,7 +211,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       await fetchManifestDetail(manifestId, currentPage);
       await fetchExpenseTypeSummary(manifestId);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible registrar el gasto.");
+      toast.error(getErrorMessage(err, "No fue posible registrar el gasto."));
     }
   }
 

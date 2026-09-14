@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { fetchEmailLogs } from "../../api";
+import { fetchEmailLogs, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatDateTime } from "../../utils/format";
 
 const PAGE_SIZE = 10;
 
@@ -23,19 +22,6 @@ const STATE_BADGES = {
   failed: { label: "Fallido", className: "status-maintenance" },
   sent: { label: "Enviado", className: "status-active" },
 };
-
-function formatDateTime(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("es-CO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function getStateBadge(state) {
   return STATE_BADGES[state] || { label: state || "-", className: "status-neutral" };
@@ -66,7 +52,7 @@ export default function OwnerEmailLogsPage({ token, me, onLogout, theme, onToggl
       setLogs(data);
       setTotalLogs(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar el historial de correos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar el historial de correos."));
     }
   }
 
@@ -88,14 +74,6 @@ export default function OwnerEmailLogsPage({ token, me, onLogout, theme, onToggl
     setTypeFilter("all");
     setStatusFilter("all");
     setCurrentPage(1);
-  }
-
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
   }
 
   return (

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import ManifestFormModal from "../../components/modals/ManifestFormModal";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatDate, formatDateTime, formatMoney } from "../../utils/format";
 
 const EMPTY_MANIFEST_FORM = {
   manifest_number: "",
@@ -46,32 +46,6 @@ const EMPTY_EXPENSE_FORM = {
 };
 
 const MANIFEST_PAGE_SIZE = 8;
-function formatMoney(value) {
-  const parsed = Number(value || 0);
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(parsed) ? parsed : 0);
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
-}
-
-function formatDateTime(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("es-CO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function getManifestStatusBadgeClass(code) {
   switch (code) {
@@ -180,14 +154,6 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     [manifestFilters.statusIds, manifestStatuses],
   );
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
-
   async function fetchManifests(status, page) {
     try {
       const { data, headers } = await api.get("/owner/manifests", {
@@ -206,7 +172,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       setManifests(data);
       setTotalManifests(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los manifiestos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los manifiestos."));
     }
   }
 
@@ -217,7 +183,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       });
       setSuppliers(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar proveedores.");
+      toast.error(getErrorMessage(err, "No fue posible cargar proveedores."));
     }
   }
 
@@ -228,7 +194,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       });
       setVehicles(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar vehiculos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar vehiculos."));
     }
   }
 
@@ -237,7 +203,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       const { data } = await api.get("/owner/active-drivers");
       setDrivers(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los conductores activos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los conductores activos."));
     }
   }
 
@@ -246,7 +212,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       const { data } = await api.get("/owner/expense-types");
       setExpenseTypes(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los tipos de gasto.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los tipos de gasto."));
     }
   }
 
@@ -255,7 +221,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       const { data } = await api.get("/owner/manifest-statuses");
       setManifestStatuses(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los estados de manifiesto.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los estados de manifiesto."));
     }
   }
 
@@ -419,7 +385,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         await fetchManifests(statusFilter, currentManifestPage);
       }
     } catch (err) {
-      toast.error(err.response?.data?.detail || `No fue posible ${editingManifestId ? "actualizar" : "crear"} el manifiesto.`);
+      toast.error(getErrorMessage(err, `No fue posible ${editingManifestId ? "actualizar" : "crear"} el manifiesto.`));
     }
   }
 
@@ -460,7 +426,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       setEditingExpenseIndex(null);
       await fetchManifests(statusFilter, currentManifestPage);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible registrar el gasto.");
+      toast.error(getErrorMessage(err, "No fue posible registrar el gasto."));
     }
   }
 

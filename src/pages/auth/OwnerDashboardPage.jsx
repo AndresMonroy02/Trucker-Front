@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Bar,
@@ -17,7 +17,7 @@ import {
 
 import { api } from "../../api";
 import DashboardShell from "../../components/DashboardShell";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatMoney } from "../../utils/format";
 
 const PIE_COLORS_LIGHT = ["#2d7dd2", "#3ea6d6", "#4bbf92", "#f0b45a", "#dc7b62", "#8e79d7"];
 const PIE_COLORS_DARK = ["#55a6ff", "#76c1ff", "#63d4b1", "#f4c97b", "#f09785", "#ab98ea"];
@@ -35,15 +35,6 @@ function getCurrentMonthRange() {
     date_from: `${year}-${pad(month)}-01`,
     date_to: `${year}-${pad(month)}-${pad(lastDay)}`,
   };
-}
-
-function formatMoney(value) {
-  const parsed = Number(value || 0);
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(parsed) ? parsed : 0);
 }
 
 export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggleTheme }) {
@@ -114,14 +105,6 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
   const totalExpenses = byVehicle.reduce((sum, item) => sum + Number(item.total_expenses || 0), 0);
   const totalManifests = byVehicle.reduce((sum, item) => sum + Number(item.manifest_count || 0), 0);
   const netMargin = totalManifestValue - totalExpenses;
-
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
 
   return (
     <DashboardShell

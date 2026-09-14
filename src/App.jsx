@@ -1,29 +1,32 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { api, setAuthToken, setUnauthorizedHandler } from "./api";
 import ActivateAccountPage from "./pages/auth/ActivateAccountPage";
-import AdminDashboardPage from "./pages/owner/AdminDashboardPage";
-import DashboardPage from "./pages/auth/DashboardPage";
-import DriverDashboardPage from "./pages/driver/DriverDashboardPage";
-import DriverManifestDetailPage from "./pages/driver/DriverManifestDetailPage";
-import DriverManifestsPage from "./pages/driver/DriverManifestsPage";
-import GeneralDashboardPage from "./pages/auth/GeneralDashboardPage";
 import LoginPage from "./pages/auth/LoginPage";
-import OwnerDriversPage from "./pages/owner/OwnerDriversPage";
-import OwnerExpensesPage from "./pages/owner/OwnerExpensesPage";
-import ProfilePage from "./pages/auth/ProfilePage";
-import OwnerDashboardPage from "./pages/auth/OwnerDashboardPage";
-import OwnerManifestDetailPage from "./pages/owner/OwnerManifestDetailPage";
-import OwnerVehiclesPage from "./pages/owner/OwnerVehiclesPage";
-import OwnerRoutesPage from "./pages/owner/OwnerRoutesPage";
-import OwnerSuppliersPage from "./pages/owner/OwnerSuppliersPage";
-import OwnerEmailLogsPage from "./pages/owner/OwnerEmailLogsPage";
+import RequireAuth from "./components/RequireAuth";
 import RegisterPage from "./pages/auth/RegisterPage";
 import SetPasswordPage from "./pages/auth/SetPasswordPage";
 import logo from "./assets/trucker_no_text.png";
 import { getDashboardPathByRole } from "./utils/roleRouting";
+
+// Route-level code splitting: the login screen no longer ships every dashboard.
+const AdminDashboardPage = lazy(() => import("./pages/owner/AdminDashboardPage"));
+const DashboardPage = lazy(() => import("./pages/auth/DashboardPage"));
+const DriverDashboardPage = lazy(() => import("./pages/driver/DriverDashboardPage"));
+const DriverManifestDetailPage = lazy(() => import("./pages/driver/DriverManifestDetailPage"));
+const DriverManifestsPage = lazy(() => import("./pages/driver/DriverManifestsPage"));
+const GeneralDashboardPage = lazy(() => import("./pages/auth/GeneralDashboardPage"));
+const OwnerDriversPage = lazy(() => import("./pages/owner/OwnerDriversPage"));
+const OwnerExpensesPage = lazy(() => import("./pages/owner/OwnerExpensesPage"));
+const ProfilePage = lazy(() => import("./pages/auth/ProfilePage"));
+const OwnerDashboardPage = lazy(() => import("./pages/auth/OwnerDashboardPage"));
+const OwnerManifestDetailPage = lazy(() => import("./pages/owner/OwnerManifestDetailPage"));
+const OwnerVehiclesPage = lazy(() => import("./pages/owner/OwnerVehiclesPage"));
+const OwnerRoutesPage = lazy(() => import("./pages/owner/OwnerRoutesPage"));
+const OwnerSuppliersPage = lazy(() => import("./pages/owner/OwnerSuppliersPage"));
+const OwnerEmailLogsPage = lazy(() => import("./pages/owner/OwnerEmailLogsPage"));
 
 const EMPTY_REGISTER = {
   username: "",
@@ -141,6 +144,7 @@ export default function App() {
           </div>
         ) : null}
 
+        <Suspense fallback={<p className="hint">Cargando...</p>}>
         <Routes>
           <Route
             path="/"
@@ -177,179 +181,212 @@ export default function App() {
           <Route path="/set-password" element={<SetPasswordPage />} />
           <Route
             path="/dashboard"
-            element={<DashboardPage token={token} me={me} />}
+            element={
+              <RequireAuth token={token} me={me}>
+                <DashboardPage token={token} me={me} />
+              </RequireAuth>
+            }
           />
           <Route
             path="/dashboard/owner"
             element={
-              <OwnerDashboardPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerDashboardPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/owner/vehicles"
             element={
-              <OwnerVehiclesPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerVehiclesPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/owner/drivers"
             element={
-              <OwnerDriversPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerDriversPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/owner/routes"
             element={
-              <OwnerRoutesPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerRoutesPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/owner/routes/:manifestId"
             element={
-              <OwnerManifestDetailPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerManifestDetailPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/owner/suppliers"
             element={
-              <OwnerSuppliersPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerSuppliersPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/owner/emails"
             element={
-              <OwnerEmailLogsPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerEmailLogsPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/owner/expenses"
             element={
-              <OwnerExpensesPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerExpensesPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/driver"
             element={
-              <DriverDashboardPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="driver_profile">
+                <DriverDashboardPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/driver/manifests"
             element={
-              <DriverManifestsPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="driver_profile">
+                <DriverManifestsPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/driver/manifests/:manifestId"
             element={
-              <DriverManifestDetailPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="driver_profile">
+                <DriverManifestDetailPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/admin"
             element={
-              <AdminDashboardPage
-                token={token}
-                me={me}
-                adminMessage={adminMessage}
-                setAdminMessage={setAdminMessage}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="admin">
+                <AdminDashboardPage
+                  token={token}
+                  me={me}
+                  adminMessage={adminMessage}
+                  setAdminMessage={setAdminMessage}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/general"
             element={
-              <GeneralDashboardPage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me} role="user">
+                <GeneralDashboardPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
           <Route
             path="/dashboard/profile"
             element={
-              <ProfilePage
-                token={token}
-                me={me}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onLogout={logout}
-              />
+              <RequireAuth token={token} me={me}>
+                <ProfilePage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
             }
           />
         </Routes>
+        </Suspense>
       </section>
     </main>
   );

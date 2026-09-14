@@ -1,3 +1,13 @@
+/** Keep in sync with MIN_PASSWORD_LENGTH in the backend config. */
+export const MIN_PASSWORD_LENGTH = 8;
+
+export function validatePassword(value) {
+  if (!value || value.length < MIN_PASSWORD_LENGTH) {
+    return `La contrasena debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+  }
+  return "";
+}
+
 export function validateLogin(values) {
   const errors = {};
 
@@ -6,8 +16,9 @@ export function validateLogin(values) {
     errors.username = "Ingresa tu usuario o correo.";
   }
 
-  if (!values.password || values.password.length < 6) {
-    errors.password = "La contrasena debe tener al menos 6 caracteres.";
+  // Existing accounts may predate the current minimum, so login only checks presence.
+  if (!values.password) {
+    errors.password = "Ingresa tu contrasena.";
   }
 
   return errors;
@@ -42,9 +53,14 @@ export function validateRegister(values) {
     errors.email = "Ingresa un correo valido.";
   }
 
-  const allowedRoles = ["owner_profile", "driver_profile", "user", "admin"];
-  if (!values.role || !allowedRoles.includes(values.role)) {
-    errors.role = "Selecciona un perfil valido.";
+  const passwordError = validatePassword(values.password);
+  if (passwordError) {
+    errors.password = passwordError;
+  }
+
+  // Registering only ever creates an owner; the backend enforces the same.
+  if (values.role && values.role !== "owner_profile") {
+    errors.role = "Solo puedes registrarte como propietario.";
   }
 
   return errors;

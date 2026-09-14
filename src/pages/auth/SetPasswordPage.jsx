@@ -3,10 +3,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import AuthForm from "../../components/AuthForm";
-import { getInvitationStatus, setPasswordWithToken } from "../../api";
+import { MIN_PASSWORD_LENGTH, validatePassword } from "../../utils/validation";
+import { getErrorMessage, getInvitationStatus, setPasswordWithToken } from "../../api";
 
 const fields = [
-  { name: "new_password", label: "Nueva contrasena", type: "password", placeholder: "minimo 6 caracteres", required: true },
+  { name: "new_password", label: "Nueva contrasena", type: "password", placeholder: `minimo ${MIN_PASSWORD_LENGTH} caracteres`, required: true },
   { name: "confirm_password", label: "Confirmar contrasena", type: "password", placeholder: "repite la contrasena", required: true },
 ];
 
@@ -63,8 +64,9 @@ export default function SetPasswordPage() {
     e.preventDefault();
 
     const nextErrors = {};
-    if (!values.new_password || values.new_password.length < 6) {
-      nextErrors.new_password = "La contrasena debe tener al menos 6 caracteres.";
+    const passwordError = validatePassword(values.new_password);
+    if (passwordError) {
+      nextErrors.new_password = passwordError;
     }
     if (values.confirm_password !== values.new_password) {
       nextErrors.confirm_password = "Las contrasenas no coinciden.";
@@ -85,7 +87,7 @@ export default function SetPasswordPage() {
       toast.success("Contrasena creada correctamente. Ya puedes iniciar sesion.");
       navigate("/login");
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible configurar la contrasena.");
+      toast.error(getErrorMessage(err, "No fue posible configurar la contrasena."));
     }
   }
 

@@ -30,6 +30,28 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * Turn any axios failure into a string safe to hand to a toast.
+ *
+ * FastAPI answers 422 with `detail` as an ARRAY of issue objects, so the common
+ * `err.response?.data?.detail || "..."` renders "[object Object]". This flattens
+ * that case and falls back to the caller's message.
+ */
+export function getErrorMessage(err, fallback = "Ocurrio un error inesperado.") {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((issue) => (typeof issue === "string" ? issue : issue?.msg))
+      .filter(Boolean);
+    if (messages.length) return messages.join(" ");
+  }
+  if (detail && typeof detail === "object" && typeof detail.msg === "string") return detail.msg;
+  if (err?.response?.status === 429) return "Demasiadas solicitudes. Intenta de nuevo en un momento.";
+  if (err?.code === "ERR_NETWORK") return "No fue posible conectar con el servidor.";
+  return fallback;
+}
+
 export function activateAccount(token) {
   return api.post("/auth/activate", { token });
 }

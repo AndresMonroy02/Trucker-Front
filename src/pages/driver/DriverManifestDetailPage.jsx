@@ -1,29 +1,15 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatDate, formatMoney } from "../../utils/format";
 
 const PAGE_SIZE = 10;
-
-function formatMoney(value) {
-  const parsed = Number(value || 0);
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(parsed) ? parsed : 0);
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
-}
 
 function profileTypeLabel(role) {
   return {
@@ -66,14 +52,6 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
   const expenses = manifestDetail?.expenses ?? [];
   const canAddExpense = manifestDetail?.status?.code === "in_transit";
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "driver_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
-
   useEffect(() => {
     if (!manifestId) return;
     fetchManifestDetail(manifestId, currentPage);
@@ -104,7 +82,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
       setManifestDetail(data);
       setTotalExpenses(Number(headers["x-total-count"] || data.expenses?.length || 0));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar el detalle del manifiesto.");
+      toast.error(getErrorMessage(err, "No fue posible cargar el detalle del manifiesto."));
     }
   }
 
@@ -113,7 +91,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
       const { data } = await api.get("/driver/expense-types");
       setExpenseTypes(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los tipos de gasto.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los tipos de gasto."));
     }
   }
 
@@ -122,7 +100,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
       const { data } = await api.get("/driver/suppliers");
       setSuppliers(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar proveedores.");
+      toast.error(getErrorMessage(err, "No fue posible cargar proveedores."));
     }
   }
 
@@ -212,7 +190,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
       setEditingExpenseIndex(null);
       await fetchManifestDetail(manifestId, currentPage);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible registrar el gasto.");
+      toast.error(getErrorMessage(err, "No fue posible registrar el gasto."));
     }
   }
 

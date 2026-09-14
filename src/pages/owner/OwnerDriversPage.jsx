@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api, sendDriverInvite } from "../../api";
+import { api, getErrorMessage, sendDriverInvite } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import DriverFormModal from "../../components/modals/DriverFormModal";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
 import { isValidEmail } from "../../utils/validation";
+import { formatDateTime } from "../../utils/format";
 
 const INITIAL_FORM = {
   name: "",
@@ -23,19 +22,6 @@ const INITIAL_FORM = {
 };
 
 const PAGE_SIZE = 8;
-
-function formatDateTime(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("es-CO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 // What the owner needs to know at a glance: can this driver log in yet, and if not, why.
 function getAccountBadge(driver) {
@@ -89,14 +75,6 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
   const totalPages = Math.max(1, Math.ceil(totalDrivers / PAGE_SIZE));
   const paginatedDrivers = useMemo(() => drivers, [drivers]);
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
-
   useEffect(() => {
     fetchDrivers(currentPage, statusFilter);
   }, [currentPage, statusFilter]);
@@ -113,7 +91,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       setDrivers(data);
       setTotalDrivers(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar conductores.");
+      toast.error(getErrorMessage(err, "No fue posible cargar conductores."));
     }
   }
 
@@ -122,7 +100,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       const { data } = await api.get("/owner/driver-statuses");
       setDriverStatuses(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los estados de conductor.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los estados de conductor."));
     }
   }
 
@@ -131,7 +109,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       const { data } = await api.get("/owner/driver-accounts");
       setDriverAccounts(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar las cuentas de conductor.");
+      toast.error(getErrorMessage(err, "No fue posible cargar las cuentas de conductor."));
     }
   }
 
@@ -154,7 +132,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       account_email: "",
     });
     setEditingDriver(driver);
-    fetchDriverAccounts();
+    // No account dropdown in edit mode, so there is nothing to populate.
     setIsModalOpen(true);
   }
 
@@ -262,7 +240,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       }
       closeModal();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible crear el conductor.");
+      toast.error(getErrorMessage(err, "No fue posible crear el conductor."));
     }
   }
 
@@ -278,7 +256,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       toast.success("Invitacion reenviada al conductor.");
       await fetchDrivers(currentPage, statusFilter);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible enviar la invitacion.");
+      toast.error(getErrorMessage(err, "No fue posible enviar la invitacion."));
     } finally {
       setResendingId(null);
     }
@@ -293,7 +271,7 @@ export default function OwnerDriversPage({ token, me, onLogout, theme, onToggleT
       closeModal();
       await fetchDrivers(currentPage, statusFilter);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible eliminar el conductor.");
+      toast.error(getErrorMessage(err, "No fue posible eliminar el conductor."));
     }
   }
 

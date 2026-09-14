@@ -1,19 +1,10 @@
-import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
 
 export default function AdminDashboardPage({ token, me, adminMessage, setAdminMessage, onLogout, theme, onToggleTheme }) {
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "admin") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
 
   async function checkAdminRoute() {
     try {
@@ -21,7 +12,7 @@ export default function AdminDashboardPage({ token, me, adminMessage, setAdminMe
       setAdminMessage(data.message);
     } catch (err) {
       setAdminMessage("");
-      toast.error(err.response?.data?.detail || "No tienes permisos de administrador.");
+      toast.error(getErrorMessage(err, "No tienes permisos de administrador."));
     }
   }
 

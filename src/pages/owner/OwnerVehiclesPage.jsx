@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import VehicleFormModal from "../../components/modals/VehicleFormModal";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatDate } from "../../utils/format";
 
 const INITIAL_FORM = {
   plate: "",
@@ -19,13 +18,6 @@ const INITIAL_FORM = {
 };
 
 const PAGE_SIZE = 8;
-
-function formatDate(value) {
-  if (!value) return "-";
-  const dateValue = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
-  const date = new Date(dateValue);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("es-CO");
-}
 
 export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [vehicles, setVehicles] = useState([]);
@@ -56,14 +48,6 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
 
   const activeCount = useMemo(() => vehicles.filter((vehicle) => vehicle.status?.code === "active").length, [vehicles]);
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
-
   async function fetchVehicles(page, statusValue) {
     try {
       const { data, headers } = await api.get("/owner/vehicles", {
@@ -72,7 +56,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       setVehicles(data);
       setTotalVehicles(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar vehiculos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar vehiculos."));
     }
   }
 
@@ -81,7 +65,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       const { data } = await api.get("/owner/vehicle-statuses");
       setVehicleStatuses(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los estados de vehiculo.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los estados de vehiculo."));
     }
   }
 
@@ -90,7 +74,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       const { data } = await api.get("/owner/active-drivers");
       setDrivers(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los conductores activos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los conductores activos."));
     }
   }
 
@@ -168,7 +152,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       }
       closeModal();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible crear el vehiculo.");
+      toast.error(getErrorMessage(err, "No fue posible crear el vehiculo."));
     }
   }
 
@@ -185,7 +169,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       closeModal();
       await fetchVehicles(currentPage, statusFilter);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible eliminar el vehiculo.");
+      toast.error(getErrorMessage(err, "No fue posible eliminar el vehiculo."));
     }
   }
 

@@ -1,16 +1,7 @@
-import { Navigate } from "react-router-dom";
 
 import DashboardShell from "../../components/DashboardShell";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
 
 export default function GeneralDashboardPage({ token, me, onLogout, theme, onToggleTheme }) {
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "user") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
 
   return (
     <DashboardShell

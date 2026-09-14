@@ -3,21 +3,15 @@ import { toast } from "sonner";
 
 import AuthForm from "../../components/AuthForm";
 import { api } from "../../api";
-import { parseApiFieldErrors, validateRegister } from "../../utils/validation";
+import { MIN_PASSWORD_LENGTH, parseApiFieldErrors, validateRegister } from "../../utils/validation";
 
+// Registrarse crea siempre una cuenta de propietario: es el unico perfil que se
+// crea solo. Los conductores los da de alta el propietario y reciben una
+// invitacion por correo, y el administrador se asigna internamente.
 const fields = [
   { name: "username", label: "Usuario", type: "text", placeholder: "sin espacios", required: true },
   { name: "email", label: "Correo", type: "email", placeholder: "tu@correo.com", required: true },
-  { name: "password", label: "Contrasena", type: "password", placeholder: "minimo 6 caracteres", required: true },
-  {
-    name: "role",
-    label: "Perfil",
-    type: "select",
-    options: [
-      { value: "owner_profile", label: "Propietario" },
-      { value: "driver_profile", label: "Conductor" },
-    ],
-  },
+  { name: "password", label: "Contrasena", type: "password", placeholder: `minimo ${MIN_PASSWORD_LENGTH} caracteres`, required: true },
 ];
 
 export default function RegisterPage({ token, values, setValues, errors, setErrors, redirectPath = "/dashboard" }) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { activateAccount } from "../../api";
+import { activateAccount, getErrorMessage } from "../../api";
 
 export default function ActivateAccountPage() {
   const [searchParams] = useSearchParams();
@@ -26,7 +26,7 @@ export default function ActivateAccountPage() {
       })
       .catch((err) => {
         setStatus("error");
-        setMessage(err.response?.data?.detail || "No fue posible activar la cuenta.");
+        setMessage(getErrorMessage(err, "No fue posible activar la cuenta."));
       });
   }, [token]);
 

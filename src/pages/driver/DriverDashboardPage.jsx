@@ -1,16 +1,8 @@
-import { Navigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import DashboardShell from "../../components/DashboardShell";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
 
 export default function DriverDashboardPage({ token, me, onLogout, theme, onToggleTheme }) {
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "driver_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
 
   return (
     <DashboardShell

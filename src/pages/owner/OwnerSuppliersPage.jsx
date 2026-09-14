@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import SupplierFormModal from "../../components/modals/SupplierFormModal";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatDate } from "../../utils/format";
 
 const EMPTY_SUPPLIER_FORM = {
   name: "",
@@ -22,11 +21,6 @@ const EMPTY_SUPPLIER_FORM = {
 };
 
 const PAGE_SIZE = 8;
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
-}
 
 export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [suppliers, setSuppliers] = useState([]);
@@ -42,14 +36,6 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
 
   const totalPages = Math.max(1, Math.ceil(totalSuppliers / PAGE_SIZE));
   const paginatedSuppliers = useMemo(() => suppliers, [suppliers]);
-
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
 
   useEffect(() => {
     fetchSuppliers(currentPage, statusFilter, categoryFilter);
@@ -72,7 +58,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       setSuppliers(data);
       setTotalSuppliers(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar proveedores.");
+      toast.error(getErrorMessage(err, "No fue posible cargar proveedores."));
     }
   }
 
@@ -81,7 +67,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       const { data } = await api.get("/owner/expense-types");
       setExpenseTypes(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar las categorias de gasto.");
+      toast.error(getErrorMessage(err, "No fue posible cargar las categorias de gasto."));
     }
   }
 
@@ -166,7 +152,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       }
       closeModal();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible guardar el proveedor.");
+      toast.error(getErrorMessage(err, "No fue posible guardar el proveedor."));
     }
   }
 
@@ -183,7 +169,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
       closeModal();
       await fetchSuppliers(currentPage, statusFilter, categoryFilter);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible eliminar el proveedor.");
+      toast.error(getErrorMessage(err, "No fue posible eliminar el proveedor."));
     }
   }
 

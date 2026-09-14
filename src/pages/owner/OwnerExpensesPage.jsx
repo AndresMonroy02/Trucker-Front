@@ -1,34 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api } from "../../api";
+import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import ExpenseEditModal from "../../components/modals/ExpenseEditModal";
 import TablePagination from "../../components/TablePagination";
-import { getDashboardPathByRole } from "../../utils/roleRouting";
+import { formatDate, formatDateOnly, formatMoney } from "../../utils/format";
 
 const PAGE_SIZE = 8;
-
-function formatMoney(value) {
-  const parsed = Number(value || 0);
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(parsed) ? parsed : 0);
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("es-CO");
-}
-
-function formatDateOnly(value) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("es-CO");
-}
 
 const EMPTY_EXPENSE_FORM = {
   manifest_id: "",
@@ -97,14 +77,6 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
   const totalPages = Math.max(1, Math.ceil(totalExpenses / PAGE_SIZE));
   const paginatedExpenses = useMemo(() => expenses, [expenses]);
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (me && me.role !== "owner_profile") {
-    return <Navigate to={getDashboardPathByRole(me.role)} replace />;
-  }
-
   useEffect(() => {
     fetchExpenses(currentPage, filters);
   }, [currentPage, filters]);
@@ -128,7 +100,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       setExpenses(data);
       setTotalExpenses(Number(headers["x-total-count"] || data.length));
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar gastos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar gastos."));
     }
   }
 
@@ -143,7 +115,6 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
     setCurrentPage(1);
   }
 
-
   async function fetchEditOptions() {
     try {
       const [manifestResponse, supplierResponse, expenseTypeResponse] = await Promise.all([
@@ -155,7 +126,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       setSuppliers(supplierResponse.data);
       setExpenseTypes(expenseTypeResponse.data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible cargar los datos para editar gastos.");
+      toast.error(getErrorMessage(err, "No fue posible cargar los datos para editar gastos."));
     }
   }
 
@@ -197,7 +168,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       closeEditExpense();
       await fetchExpenses(currentPage, filters);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible actualizar el gasto.");
+      toast.error(getErrorMessage(err, "No fue posible actualizar el gasto."));
     }
   }
 
@@ -220,7 +191,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       closeEditExpense();
       await fetchExpenses(currentPage, filters);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "No fue posible eliminar el gasto.");
+      toast.error(getErrorMessage(err, "No fue posible eliminar el gasto."));
     }
   }
 

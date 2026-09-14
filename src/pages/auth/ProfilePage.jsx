@@ -1,11 +1,7 @@
-import { Navigate } from "react-router-dom";
 
 import DashboardShell from "../../components/DashboardShell";
 
 export default function ProfilePage({ token, me, onLogout, theme, onToggleTheme }) {
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
 
   if (!me) {
     return (
