@@ -2,6 +2,26 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import logo from "../assets/trucker_no_text.png";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconClose,
+  IconDashboard,
+  IconLogout,
+  IconMail,
+  IconMenu,
+  IconMoney,
+  IconMoon,
+  IconProfile,
+  IconRoute,
+  IconShield,
+  IconSun,
+  IconSupplier,
+  IconTruck,
+  IconUser,
+} from "./icons";
+
+const MOBILE_QUERY = "(max-width: 1024px)";
 
 const EXACT_DASHBOARD_ROUTES = new Set([
   "/dashboard/profile",
@@ -35,60 +55,60 @@ function getSidebarGroups(role) {
     owner_profile: [
       {
         title: "Resumen",
-        items: [{ to: "/dashboard/owner", label: "Panel principal", icon: "PN" }],
+        items: [{ to: "/dashboard/owner", label: "Panel principal", Icon: IconDashboard }],
       },
       {
         title: "Operacion",
         items: [
-          { to: "/dashboard/owner/routes", label: "Manifiestos", icon: "MF" },
-          { to: "/dashboard/owner/expenses", label: "Gastos", icon: "GS" },
-          { to: "/dashboard/owner/suppliers", label: "Proveedores", icon: "PR" },
-          { to: "/dashboard/owner/vehicles", label: "Vehiculos", icon: "VH" },
-          { to: "/dashboard/owner/drivers", label: "Conductores", icon: "CD" },
-        { to: "/dashboard/owner/emails", label: "Correos", icon: "CO" },
+          { to: "/dashboard/owner/routes", label: "Manifiestos", Icon: IconRoute },
+          { to: "/dashboard/owner/expenses", label: "Gastos", Icon: IconMoney },
+          { to: "/dashboard/owner/suppliers", label: "Proveedores", Icon: IconSupplier },
+          { to: "/dashboard/owner/vehicles", label: "Vehiculos", Icon: IconTruck },
+          { to: "/dashboard/owner/drivers", label: "Conductores", Icon: IconUser },
+          { to: "/dashboard/owner/emails", label: "Correos", Icon: IconMail },
         ],
       },
       {
         title: "Cuenta",
-        items: [{ to: "/dashboard/profile", label: "Mi perfil", icon: "PF" }],
+        items: [{ to: "/dashboard/profile", label: "Mi perfil", Icon: IconProfile }],
       },
     ],
     driver_profile: [
       {
         title: "Resumen",
-        items: [{ to: "/dashboard/driver", label: "Panel principal", icon: "PN" }],
+        items: [{ to: "/dashboard/driver", label: "Panel principal", Icon: IconDashboard }],
       },
       {
         title: "Operacion",
-        items: [{ to: "/dashboard/driver/manifests", label: "Mis manifiestos", icon: "MF" }],
+        items: [{ to: "/dashboard/driver/manifests", label: "Mis manifiestos", Icon: IconRoute }],
       },
       {
         title: "Cuenta",
-        items: [{ to: "/dashboard/profile", label: "Mi perfil", icon: "PF" }],
+        items: [{ to: "/dashboard/profile", label: "Mi perfil", Icon: IconProfile }],
       },
     ],
     admin: [
       {
         title: "Paneles",
         items: [
-          { to: "/dashboard/admin", label: "Panel admin", icon: "AD" },
-          { to: "/dashboard/owner", label: "Panel owner", icon: "OW" },
-          { to: "/dashboard/driver", label: "Panel driver", icon: "DR" },
+          { to: "/dashboard/admin", label: "Panel admin", Icon: IconShield },
+          { to: "/dashboard/owner", label: "Panel owner", Icon: IconDashboard },
+          { to: "/dashboard/driver", label: "Panel driver", Icon: IconTruck },
         ],
       },
       {
         title: "Cuenta",
-        items: [{ to: "/dashboard/profile", label: "Mi perfil", icon: "PF" }],
+        items: [{ to: "/dashboard/profile", label: "Mi perfil", Icon: IconProfile }],
       },
     ],
     user: [
       {
         title: "Resumen",
-        items: [{ to: "/dashboard/general", label: "Panel general", icon: "GN" }],
+        items: [{ to: "/dashboard/general", label: "Panel general", Icon: IconDashboard }],
       },
       {
         title: "Cuenta",
-        items: [{ to: "/dashboard/profile", label: "Mi perfil", icon: "PF" }],
+        items: [{ to: "/dashboard/profile", label: "Mi perfil", Icon: IconProfile }],
       },
     ],
   };
@@ -100,109 +120,154 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
   const location = useLocation();
   const roleLabel = getRoleLabel(me?.role);
   const sidebarStorageKey = getSidebarStorageKey(me?.role);
+
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.matchMedia("(max-width: 1024px)").matches;
+    return window.matchMedia(MOBILE_QUERY).matches;
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    const storedValue = localStorage.getItem(sidebarStorageKey);
-    return storedValue !== "false";
+    try {
+      return localStorage.getItem(getSidebarStorageKey(me?.role)) === "true";
+    } catch {
+      return false;
+    }
   });
+
   const sidebarGroups = getSidebarGroups(me?.role);
   const isSidebarCollapsed = !isMobile && isCollapsed;
+  const isDark = theme === "dark";
 
   useEffect(() => {
-    localStorage.setItem(sidebarStorageKey, String(isCollapsed));
+    try {
+      localStorage.setItem(sidebarStorageKey, String(isCollapsed));
+    } catch {
+      // private mode or blocked storage: the preference just does not persist
+    }
   }, [isCollapsed, sidebarStorageKey]);
 
   useEffect(() => {
-    const storedValue = localStorage.getItem(sidebarStorageKey);
-    setIsCollapsed(storedValue !== "false");
+    try {
+      setIsCollapsed(localStorage.getItem(sidebarStorageKey) === "true");
+    } catch {
+      setIsCollapsed(false);
+    }
   }, [sidebarStorageKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
-    const mediaQuery = window.matchMedia("(max-width: 1024px)");
+    const mediaQuery = window.matchMedia(MOBILE_QUERY);
 
     function handleMediaChange(event) {
       setIsMobile(event.matches);
-      if (!event.matches) {
-        setIsSidebarOpen(false);
-      }
+      if (!event.matches) setIsSidebarOpen(false);
     }
 
     setIsMobile(mediaQuery.matches);
     mediaQuery.addEventListener("change", handleMediaChange);
-
     return () => mediaQuery.removeEventListener("change", handleMediaChange);
   }, []);
 
+  // Close the drawer on navigation so a tap never leaves it covering the page.
   useEffect(() => {
-    if (isMobile) {
-      setIsSidebarOpen(false);
-    }
+    if (isMobile) setIsSidebarOpen(false);
   }, [location.pathname, isMobile]);
 
-  function toggleSidebar() {
-    if (isMobile) {
-      setIsSidebarOpen((prev) => !prev);
-      return;
+  // Escape closes the drawer, and the page underneath must not scroll behind it.
+  useEffect(() => {
+    if (!isMobile || !isSidebarOpen) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setIsSidebarOpen(false);
     }
 
-    setIsCollapsed((prev) => !prev);
-  }
+    document.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobile, isSidebarOpen]);
 
   function handleSidebarItemClick() {
-    if (isMobile) {
-      setIsSidebarOpen(false);
-    }
+    if (isMobile) setIsSidebarOpen(false);
   }
 
-  return (
-    <section
-      className={`dashboard-shell ${isSidebarCollapsed ? "dashboard-shell-collapsed" : ""} ${isSidebarOpen ? "dashboard-shell-sidebar-open" : ""}`}
-    >
+  const shellClasses = [
+    "dashboard-shell",
+    isSidebarCollapsed ? "dashboard-shell-collapsed" : "",
+    isSidebarOpen ? "dashboard-shell-sidebar-open" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-      <aside className={`dashboard-sidebar ${isSidebarCollapsed ? "dashboard-sidebar-collapsed" : ""}`} id="dashboard-sidebar" aria-hidden={isMobile && !isSidebarOpen}>
-        <div className="sidebar-brand-block">
-          <div className="sidebar-brand-row">
-            <img className="sidebar-logo" src={logo} alt="Trucker" />
-            <div className="sidebar-brand-actions">
-              <button
-                className="sidebar-toggle"
-                type="button"
-                onClick={toggleSidebar}
-                aria-label={isMobile ? (isSidebarOpen ? "Cerrar sidebar" : "Abrir sidebar") : (isSidebarCollapsed ? "Expandir sidebar" : "Contraer sidebar")}
-                aria-expanded={isMobile ? isSidebarOpen : !isSidebarCollapsed}
-                aria-controls="dashboard-sidebar"
-              >
-                <span aria-hidden="true">{isMobile ? "x" : (isSidebarCollapsed ? ">" : "<")}</span>
-              </button>
-            </div>
+  return (
+    <section className={shellClasses}>
+      <aside
+        className="dashboard-sidebar"
+        id="dashboard-sidebar"
+        aria-hidden={isMobile && !isSidebarOpen}
+      >
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-identity">
+            <img className="sidebar-logo" src={logo} alt="Trucker" width="596" height="477" />
+            <span className="sidebar-brand-text">
+              <strong>Trucker</strong>
+              <small>Control de operacion</small>
+            </span>
           </div>
-          <p className="sidebar-brand-copy">Control de operacion</p>
+
+          {isMobile ? (
+            <button
+              className="sidebar-icon-button"
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              aria-label="Cerrar menu"
+            >
+              <IconClose className="sidebar-glyph" />
+            </button>
+          ) : null}
         </div>
+
+        {!isMobile ? (
+          <button
+            className="sidebar-collapse-button"
+            type="button"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            aria-label={isSidebarCollapsed ? "Expandir menu" : "Contraer menu"}
+            aria-expanded={!isSidebarCollapsed}
+            aria-controls="dashboard-sidebar"
+            title={isSidebarCollapsed ? "Expandir menu" : "Contraer menu"}
+          >
+            {isSidebarCollapsed ? (
+              <IconChevronRight className="sidebar-glyph" />
+            ) : (
+              <IconChevronLeft className="sidebar-glyph" />
+            )}
+            <span className="sidebar-collapse-label">Contraer</span>
+          </button>
+        ) : null}
 
         <nav className="sidebar-nav" aria-label="Navegacion de dashboard">
           {sidebarGroups.map((group) => (
             <div className="sidebar-group" key={group.title}>
               <p className="sidebar-group-title">{group.title}</p>
               <div className="sidebar-group-items">
-                {group.items.map((item) => (
+                {group.items.map(({ to, label, Icon }) => (
                   <NavLink
-                    key={item.to}
+                    key={to}
                     className={navLinkClass}
-                    to={item.to}
-                    end={EXACT_DASHBOARD_ROUTES.has(item.to)}
-                    title={isSidebarCollapsed ? item.label : undefined}
-                    data-tooltip={item.label}
-                    aria-label={item.label}
+                    to={to}
+                    end={EXACT_DASHBOARD_ROUTES.has(to)}
+                    title={isSidebarCollapsed ? label : undefined}
+                    data-tooltip={label}
                     onClick={handleSidebarItemClick}
                   >
-                    <span className="sidebar-link-icon" aria-hidden="true">{item.icon}</span>
-                    <span className="sidebar-link-label">{item.label}</span>
+                    <Icon className="sidebar-glyph" />
+                    <span className="sidebar-link-label">{label}</span>
                   </NavLink>
                 ))}
               </div>
@@ -210,17 +275,29 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
           ))}
         </nav>
 
-        <div className="sidebar-theme-row">
-          <button className="sidebar-theme-toggle" type="button" onClick={onToggleTheme} aria-label={`Cambiar a tema ${theme === "dark" ? "claro" : "oscuro"}`} title={isSidebarCollapsed ? `Tema ${theme === "dark" ? "claro" : "oscuro"}` : `Cambiar a tema ${theme === "dark" ? "claro" : "oscuro"}`} data-tooltip={`Tema ${theme === "dark" ? "oscuro" : "claro"}`}>
-            <span className="sidebar-link-icon" aria-hidden="true">{theme === "dark" ? "☾" : "☼"}</span>
-            <span className="sidebar-link-label">Tema {theme === "dark" ? "oscuro" : "claro"}</span>
+        <div className="sidebar-footer">
+          <button
+            className="sidebar-link sidebar-link-button"
+            type="button"
+            onClick={onToggleTheme}
+            title={isSidebarCollapsed ? `Tema ${isDark ? "claro" : "oscuro"}` : undefined}
+            data-tooltip={`Tema ${isDark ? "claro" : "oscuro"}`}
+            aria-label={`Cambiar a tema ${isDark ? "claro" : "oscuro"}`}
+          >
+            {isDark ? <IconSun className="sidebar-glyph" /> : <IconMoon className="sidebar-glyph" />}
+            <span className="sidebar-link-label">Tema {isDark ? "claro" : "oscuro"}</span>
           </button>
-        </div>
 
-        <div className="sidebar-actions">
-          <button className="sidebar-logout" type="button" onClick={onLogout} title={isSidebarCollapsed ? "Cerrar sesion" : undefined} aria-label="Cerrar sesion" data-tooltip="Cerrar sesion">
-            <span className="sidebar-action-icon" aria-hidden="true">⎋</span>
-            <span className="sidebar-action-label">Cerrar sesion</span>
+          <button
+            className="sidebar-link sidebar-link-button sidebar-link-danger"
+            type="button"
+            onClick={onLogout}
+            title={isSidebarCollapsed ? "Cerrar sesion" : undefined}
+            data-tooltip="Cerrar sesion"
+            aria-label="Cerrar sesion"
+          >
+            <IconLogout className="sidebar-glyph" />
+            <span className="sidebar-link-label">Cerrar sesion</span>
           </button>
         </div>
       </aside>
@@ -243,17 +320,17 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
               onClick={() => setIsSidebarOpen((prev) => !prev)}
               aria-controls="dashboard-sidebar"
               aria-expanded={isSidebarOpen}
+              aria-label="Abrir menu"
             >
-              <span aria-hidden="true">☰</span>
-              Menu
+              <IconMenu className="sidebar-glyph" />
             </button>
           ) : null}
+
           <div className="dashboard-topbar-main">
-            <div>
-              <h2>{title}</h2>
-              <p className="hint">{subtitle}</p>
-            </div>
+            <h2>{title}</h2>
+            {subtitle ? <p className="hint">{subtitle}</p> : null}
           </div>
+
           <span className="profile-chip">{roleLabel}</span>
         </header>
 
