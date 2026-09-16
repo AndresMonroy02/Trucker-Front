@@ -1,5 +1,10 @@
 import Button from "../Button";
 import MoneyInput from "../MoneyInput";
+import ModalBackdrop from "../ModalBackdrop";
+
+// Mirrors SUPPORTED_CURRENCIES in the backend config. The app records the currency
+// of every amount; it does not convert between them.
+const CURRENCIES = ["COP", "USD", "VES", "PEN", "BRL"];
 
 export default function ManifestFormModal({
   isOpen,
@@ -15,7 +20,7 @@ export default function ManifestFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <ModalBackdrop onClick={onClose}>
       <section
         className="modal-card"
         role="dialog"
@@ -84,17 +89,19 @@ export default function ManifestFormModal({
               </select>
             </div>
             <div className="field">
-              <label htmlFor="vehicle_plate">Vehiculo</label>
+              <label htmlFor="vehicle_id">Vehiculo</label>
+              {/* Keyed on the vehicle id, not the plate: a corrected plate must not
+                  break the manifests already pointing at that truck. */}
               <select
-                id="vehicle_plate"
-                name="vehicle_plate"
-                value={form.vehicle_plate}
+                id="vehicle_id"
+                name="vehicle_id"
+                value={form.vehicle_id}
                 onChange={onChange}
                 required
               >
                 <option value="">Selecciona un vehiculo</option>
                 {vehicles.map((vehicle) => (
-                  <option key={vehicle.plate} value={vehicle.plate}>
+                  <option key={vehicle.id} value={vehicle.id}>
                     {vehicle.plate} - {vehicle.model}
                   </option>
                 ))}
@@ -102,9 +109,20 @@ export default function ManifestFormModal({
             </div>
           </div>
 
-          <div className="field">
-            <label htmlFor="freight_value">Valor del flete</label>
-            <MoneyInput id="freight_value" name="freight_value" value={form.freight_value} onChange={onChange} />
+          <div className="owner-inline-fields">
+            <div className="field">
+              <label htmlFor="freight_value">Valor del flete</label>
+              <MoneyInput id="freight_value" name="freight_value" value={form.freight_value} onChange={onChange} />
+            </div>
+            <div className="field">
+              <label htmlFor="currency">Moneda</label>
+              <select id="currency" name="currency" value={form.currency} onChange={onChange} required>
+                {CURRENCIES.map((code) => (
+                  <option key={code} value={code}>{code}</option>
+                ))}
+              </select>
+              <p className="hint">Gastos y pagos del viaje deben usar esta misma moneda.</p>
+            </div>
           </div>
 
           <div className="field">
@@ -132,6 +150,6 @@ export default function ManifestFormModal({
           </div>
         </form>
       </section>
-    </div>
+    </ModalBackdrop>
   );
 }

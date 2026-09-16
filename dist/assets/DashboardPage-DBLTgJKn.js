@@ -1,0 +1,1 @@
+import{j as a,N as r,b as s}from"./index-Cs82jAVJ.js";function n({token:t,me:e}){return e?a.jsx(r,{to:s(e.role),replace:!0}):a.jsx("section",{className:"panel",children:a.jsx("p",{className:"hint",children:"Cargando perfil..."})})}export{n as default};

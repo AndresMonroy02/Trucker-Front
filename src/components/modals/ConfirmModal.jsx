@@ -1,4 +1,5 @@
 import Button from "../Button";
+import ModalBackdrop from "../ModalBackdrop";
 
 export default function ConfirmModal({
   isOpen,
@@ -12,7 +13,7 @@ export default function ConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
+    <ModalBackdrop onClick={onCancel}>
       <section
         className="modal-card"
         role="alertdialog"
@@ -31,6 +32,6 @@ export default function ConfirmModal({
           </Button>
         </div>
       </section>
-    </div>
+    </ModalBackdrop>
   );
 }

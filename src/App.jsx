@@ -27,6 +27,7 @@ const OwnerVehiclesPage = lazy(() => import("./pages/owner/OwnerVehiclesPage"));
 const OwnerRoutesPage = lazy(() => import("./pages/owner/OwnerRoutesPage"));
 const OwnerSuppliersPage = lazy(() => import("./pages/owner/OwnerSuppliersPage"));
 const OwnerEmailLogsPage = lazy(() => import("./pages/owner/OwnerEmailLogsPage"));
+const OwnerFinancePage = lazy(() => import("./pages/owner/OwnerFinancePage"));
 
 const EMPTY_REGISTER = {
   username: "",
@@ -276,6 +277,20 @@ export default function App() {
             element={
               <RequireAuth token={token} me={me} role="owner_profile">
                 <OwnerEmailLogsPage
+                  token={token}
+                  me={me}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLogout={logout}
+                />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/dashboard/owner/finance"
+            element={
+              <RequireAuth token={token} me={me} role="owner_profile">
+                <OwnerFinancePage
                   token={token}
                   me={me}
                   theme={theme}

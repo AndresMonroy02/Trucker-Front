@@ -1,4 +1,5 @@
 import Button from "../Button";
+import ModalBackdrop from "../ModalBackdrop";
 
 export default function VehicleFormModal({
   isOpen,
@@ -14,7 +15,7 @@ export default function VehicleFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <ModalBackdrop onClick={onClose}>
       <section
         className="modal-card"
         role="dialog"
@@ -26,7 +27,12 @@ export default function VehicleFormModal({
         <form className="owner-form" onSubmit={onSubmit}>
           <div className="field">
             <label htmlFor="plate">Placa</label>
-            <input id="plate" name="plate" value={form.plate} onChange={onChange} disabled={isEditing} required />
+            {/* Editable now: the plate stopped being the primary key, so correcting
+                a typo no longer means deleting the vehicle and its manifests. */}
+            <input id="plate" name="plate" value={form.plate} onChange={onChange} required />
+            {isEditing ? (
+              <p className="hint">Corregir la placa conserva los manifiestos y gastos del vehiculo.</p>
+            ) : null}
           </div>
 
           <div className="field">
@@ -75,6 +81,6 @@ export default function VehicleFormModal({
           </div>
         </form>
       </section>
-    </div>
+    </ModalBackdrop>
   );
 }

@@ -942,7 +942,23 @@ button:focus-visible,
 .owner-row-actions {
   display: inline-flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* Narrow screens have no room to scroll a 13-column table comfortably, so there
+   the buttons may stack again. */
+@media (max-width: 720px) {
+  .owner-row-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* A badge that sits beside text in a cell (an "Eliminado" marker after a name, an
+   "Anticipo" marker after the payment method) needs breathing room. */
+.status-badge + .status-badge,
+.status-badge-inline {
+  margin-left: 6px;
 }
 
 .owner-filters-row {
@@ -1018,7 +1034,7 @@ button:focus-visible,
 }
 
 .manifest-kpi-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
 .manifest-info-card {
@@ -1077,6 +1093,40 @@ button:focus-visible,
 
 .manifest-detail-split .owner-table-wrap {
   height: auto;
+}
+
+/* Pagos y anticipos: dos paneles del mismo peso, a diferencia del split de gastos
+   que da mas ancho a la tabla. */
+.manifest-money-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.manifest-money-split > .panel {
+  align-self: start;
+}
+
+/* The role qualifies the name, so it must not read louder than it: the shared
+   .hint is 0.94rem against a 0.78rem table cell, which inverted the two. */
+.audit-actor-role {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--c-text-muted);
+}
+
+.audit-change-list {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 2px;
+  font-size: 0.78rem;
+  color: var(--c-text-muted);
+}
+
+.audit-change-list strong {
+  color: var(--c-text);
 }
 
 .manifest-expense-pie {
@@ -1169,6 +1219,22 @@ button:focus-visible,
   border-bottom: 1px solid var(--c-border);
   text-align: left;
   font-size: 0.78rem;
+}
+
+/* A table cell that navigates, without the width a button would cost the row. */
+.table-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--c-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.table-link:hover {
+  color: var(--c-primary-strong);
 }
 
 .owner-table th {
@@ -1334,6 +1400,10 @@ button:focus-visible,
   display: grid;
   gap: 12px;
   box-shadow: var(--shadow-hard);
+  /* The page behind is scroll-locked while a modal is open, so a form taller
+     than the screen has to scroll inside the card or its buttons are lost. */
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
 
 .owner-form {
@@ -1472,7 +1542,8 @@ button:focus-visible,
 
   .manifest-kpi-grid,
   .manifest-info-grid,
-  .manifest-detail-split {
+  .manifest-detail-split,
+  .manifest-money-split {
     grid-template-columns: 1fr;
   }
 

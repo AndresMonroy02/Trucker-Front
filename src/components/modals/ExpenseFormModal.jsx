@@ -1,5 +1,6 @@
 import Button from "../Button";
 import MoneyInput from "../MoneyInput";
+import ModalBackdrop from "../ModalBackdrop";
 
 export default function ExpenseFormModal({
   isOpen,
@@ -9,6 +10,7 @@ export default function ExpenseFormModal({
   manifests,
   suppliers,
   expenseTypes,
+  paymentMethods = [],
   onChange,
   onSubmit,
   onClose,
@@ -22,7 +24,7 @@ export default function ExpenseFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <ModalBackdrop onClick={onClose}>
       <section
         className="modal-card"
         role="dialog"
@@ -83,8 +85,20 @@ export default function ExpenseFormModal({
                   <input id="expense_date" name="expense_date" type="date" value={form.expense_date} onChange={onChange} required />
                 </div>
                 <div className="field">
-                  <label htmlFor="payment_method">Metodo pago</label>
-                  <input id="payment_method" name="payment_method" value={form.payment_method} onChange={onChange} />
+                  <label htmlFor="payment_method_id">Metodo pago</label>
+                  <select
+                    id="payment_method_id"
+                    name="payment_method_id"
+                    value={form.payment_method_id}
+                    onChange={onChange}
+                  >
+                    <option value="">Sin especificar</option>
+                    {paymentMethods.map((paymentMethod) => (
+                      <option key={paymentMethod.id} value={paymentMethod.id}>
+                        {paymentMethod.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="field">
@@ -109,6 +123,19 @@ export default function ExpenseFormModal({
                 <input name="is_paid" type="checkbox" checked={form.is_paid} onChange={onChange} />
                 Gasto pagado
               </label>
+              <label className="owner-checkbox">
+                <input
+                  name="paid_from_advance"
+                  type="checkbox"
+                  checked={form.paid_from_advance}
+                  onChange={onChange}
+                />
+                Pagado con anticipo del conductor
+              </label>
+              <p className="hint">
+                Marca esta casilla solo si el conductor lo pago con el dinero que le entregaste.
+                Descuenta del saldo que te debe.
+              </p>
           </fieldset>
 
           {!isEditingExisting && expenses.length > 0 && (
@@ -146,6 +173,6 @@ export default function ExpenseFormModal({
           </div>
         </form>
       </section>
-    </div>
+    </ModalBackdrop>
   );
 }

@@ -17,7 +17,8 @@ const EMPTY_EXPENSE_FORM = {
   description: "",
   amount: "",
   expense_date: "",
-  payment_method: "",
+  payment_method_id: "",
+  paid_from_advance: false,
   reference_code: "",
   location: "",
   is_paid: true,
@@ -32,7 +33,8 @@ function toExpenseForm(expense) {
     description: expense.description || "",
     amount: String(expense.amount || ""),
     expense_date: expense.expense_date || "",
-    payment_method: expense.payment_method || "",
+    payment_method_id: expense.payment_method_id ? String(expense.payment_method_id) : "",
+    paid_from_advance: Boolean(expense.paid_from_advance),
     reference_code: expense.reference_code || "",
     location: expense.location || "",
     is_paid: expense.is_paid,
@@ -71,6 +73,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
   const [expenseTypes, setExpenseTypes] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
@@ -117,14 +120,16 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
 
   async function fetchEditOptions() {
     try {
-      const [manifestResponse, supplierResponse, expenseTypeResponse] = await Promise.all([
+      const [manifestResponse, supplierResponse, expenseTypeResponse, paymentMethodResponse] = await Promise.all([
         api.get("/owner/manifests", { params: { status: "all", page: 1, page_size: 100 } }),
         api.get("/owner/suppliers", { params: { page: 1, page_size: 100 } }),
         api.get("/owner/expense-types"),
+        api.get("/owner/payment-methods"),
       ]);
       setManifests(manifestResponse.data);
       setSuppliers(supplierResponse.data);
       setExpenseTypes(expenseTypeResponse.data);
+      setPaymentMethods(paymentMethodResponse.data);
     } catch (err) {
       toast.error(getErrorMessage(err, "No fue posible cargar los datos para editar gastos."));
     }
@@ -155,7 +160,8 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       description: expenseForm.description,
       amount: Number(expenseForm.amount),
       expense_date: expenseForm.expense_date,
-      payment_method: expenseForm.payment_method || null,
+      payment_method_id: expenseForm.payment_method_id ? Number(expenseForm.payment_method_id) : null,
+      paid_from_advance: Boolean(expenseForm.paid_from_advance),
       reference_code: expenseForm.reference_code || null,
       location: expenseForm.location || null,
       is_paid: expenseForm.is_paid,
@@ -286,7 +292,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
                   <td>{expense.expense_type?.label || "-"}</td>
                   <td>{expense.description}</td>
                   <td>{expense.supplier_name || "-"}</td>
-                  <td>{formatMoney(expense.amount)}</td>
+                  <td>{formatMoney(expense.amount, expense.currency)}</td>
                   <td>{expense.is_paid ? "Pagado" : "Pendiente"}</td>
                   <td>{formatDateOnly(expense.expense_date)}</td>
                   <td>{profileTypeLabel(expense.created_by_profile_type)}</td>
@@ -312,6 +318,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
         manifests={manifests}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
+        paymentMethods={paymentMethods}
         onChange={handleExpenseInput}
         onSubmit={submitExpenseEdit}
         onClose={closeEditExpense}

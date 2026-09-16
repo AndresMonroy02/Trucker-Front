@@ -17,7 +17,7 @@ import {
 
 import { api } from "../../api";
 import DashboardShell from "../../components/DashboardShell";
-import { formatMoney } from "../../utils/format";
+import { formatDate, formatMoney, formatPercent } from "../../utils/format";
 
 const PIE_COLORS_LIGHT = ["#2d7dd2", "#3ea6d6", "#4bbf92", "#f0b45a", "#dc7b62", "#8e79d7"];
 const PIE_COLORS_DARK = ["#55a6ff", "#76c1ff", "#63d4b1", "#f4c97b", "#f09785", "#ab98ea"];
@@ -70,16 +70,19 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
   const byExpenseCategory = summary?.by_expense_category ?? [];
 
   const manifestCountData = useMemo(
-    () => byVehicle.map((item) => ({ plate: item.plate, viajes: item.manifest_count })),
+    () => byVehicle.map((item) => ({ key: item.vehicle_id, plate: item.plate, viajes: item.manifest_count })),
     [byVehicle]
   );
 
   const financialsData = useMemo(
     () =>
       byVehicle.map((item) => ({
+        key: item.vehicle_id,
         plate: item.plate,
         manifiestos: Number(item.total_manifest_value || 0),
+        cobrado: Number(item.total_paid || 0),
         gastos: Number(item.total_expenses || 0),
+        resultado: Number(item.net_result || 0),
       })),
     [byVehicle]
   );
@@ -87,7 +90,7 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
   const manifestValuePieData = useMemo(
     () =>
       byVehicle
-        .map((item) => ({ key: item.plate, name: item.plate, value: Number(item.total_manifest_value || 0) }))
+        .map((item) => ({ key: item.vehicle_id, name: item.plate, value: Number(item.total_manifest_value || 0) }))
         .filter((item) => item.value > 0),
     [byVehicle]
   );
@@ -101,10 +104,15 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
     [byExpenseCategory]
   );
 
-  const totalManifestValue = byVehicle.reduce((sum, item) => sum + Number(item.total_manifest_value || 0), 0);
-  const totalExpenses = byVehicle.reduce((sum, item) => sum + Number(item.total_expenses || 0), 0);
-  const totalManifests = byVehicle.reduce((sum, item) => sum + Number(item.manifest_count || 0), 0);
-  const netMargin = totalManifestValue - totalExpenses;
+  const totals = summary?.totals;
+  const currency = summary?.currency || "COP";
+  const worstManifests = summary?.worst_manifests ?? [];
+  const totalManifestValue = Number(totals?.total_freight || 0);
+  const totalCollected = Number(totals?.total_collected || 0);
+  const totalReceivable = Number(totals?.total_receivable || 0);
+  const totalExpenses = Number(totals?.total_expenses || 0);
+  const totalManifests = Number(totals?.manifest_count || 0);
+  const netMargin = Number(totals?.net_result || 0);
 
   return (
     <DashboardShell
@@ -118,23 +126,37 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
       <section className="panel owner-kpi-grid">
         <article className="kpi-card">
           <span className="kpi-label">Valor manifiestos</span>
-          <strong className="kpi-value">{formatMoney(totalManifestValue)}</strong>
-          <span className="kpi-hint">Facturacion del periodo seleccionado</span>
+          <strong className="kpi-value">{formatMoney(totalManifestValue, currency)}</strong>
+          <span className="kpi-hint">Fletes acordados en el periodo</span>
+        </article>
+        <article className="kpi-card">
+          <span className="kpi-label">Cobrado</span>
+          <strong className="kpi-value">{formatMoney(totalCollected, currency)}</strong>
+          <span className="kpi-hint">Lo que los clientes ya pagaron</span>
+        </article>
+        <article className="kpi-card">
+          <span className="kpi-label">Por cobrar</span>
+          <strong className={`kpi-value ${totalReceivable > 0 ? "kpi-negative" : "kpi-positive"}`}>
+            {formatMoney(totalReceivable, currency)}
+          </strong>
+          <span className="kpi-hint">Cartera pendiente del periodo</span>
         </article>
         <article className="kpi-card">
           <span className="kpi-label">Gastos</span>
-          <strong className="kpi-value">{formatMoney(totalExpenses)}</strong>
+          <strong className="kpi-value">{formatMoney(totalExpenses, currency)}</strong>
           <span className="kpi-hint">Costo operativo consolidado</span>
         </article>
         <article className="kpi-card">
-          <span className="kpi-label">Margen</span>
-          <strong className={`kpi-value ${netMargin >= 0 ? "kpi-positive" : "kpi-negative"}`}>{formatMoney(netMargin)}</strong>
-          <span className="kpi-hint">Resultado neto preliminar</span>
+          <span className="kpi-label">Resultado</span>
+          <strong className={`kpi-value ${netMargin >= 0 ? "kpi-positive" : "kpi-negative"}`}>{formatMoney(netMargin, currency)}</strong>
+          <span className="kpi-hint">Flete menos gastos</span>
         </article>
         <article className="kpi-card">
-          <span className="kpi-label">Manifiestos</span>
-          <strong className="kpi-value">{totalManifests}</strong>
-          <span className="kpi-hint">Manifiestos del periodo</span>
+          <span className="kpi-label">Margen</span>
+          <strong className={`kpi-value ${Number(totals?.margin_pct || 0) >= 0 ? "kpi-positive" : "kpi-negative"}`}>
+            {formatPercent(totals?.margin_pct)}
+          </strong>
+          <span className="kpi-hint">{totalManifests} manifiesto(s) en el periodo</span>
         </article>
       </section>
 
@@ -147,6 +169,7 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
           <div className="actions-row">
             <Link className="quick-link" to="/dashboard/owner/routes">Ver manifiestos</Link>
             <Link className="quick-link" to="/dashboard/owner/expenses">Ver gastos</Link>
+            <Link className="quick-link" to="/dashboard/owner/finance">Ver cartera</Link>
             <Link className="quick-link" to="/dashboard/owner/suppliers">Ver proveedores</Link>
             <Link className="quick-link" to="/dashboard/owner/vehicles">Ver vehiculos</Link>
             <Link className="quick-link" to="/dashboard/owner/drivers">Ver conductores</Link>
@@ -208,12 +231,14 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
                 <XAxis dataKey="plate" tick={{ fill: "var(--c-text-muted)", fontSize: 12 }} />
                 <YAxis tick={{ fill: "var(--c-text-muted)", fontSize: 12 }} />
                 <Tooltip
-                  formatter={(value) => formatMoney(value)}
+                  formatter={(value) => formatMoney(value, currency)}
                   contentStyle={{ borderRadius: 12, border: "1px solid var(--c-border)", background: "var(--c-surface)", color: "var(--c-text)" }}
                 />
                 <Legend />
-                <Bar dataKey="manifiestos" name="Manifiestos" fill="#2e9f7f" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="manifiestos" name="Flete" fill="#2e9f7f" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="cobrado" name="Cobrado" fill="#3ea6d6" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="gastos" name="Gastos" fill="#c65a52" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="resultado" name="Resultado" fill="#8e79d7" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -244,7 +269,7 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value) => formatMoney(value)}
+                      formatter={(value) => formatMoney(value, currency)}
                       contentStyle={{ borderRadius: 12, border: "1px solid var(--c-border)", background: "var(--c-surface)", color: "var(--c-text)" }}
                       itemStyle={{ color: "var(--c-text)" }}
                     />
@@ -260,7 +285,7 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
                       <div>
                         <p className="manifest-pie-label">{item.name}</p>
                         <p className="manifest-pie-value">
-                          {formatMoney(item.value)} <span>{percent.toFixed(1)}%</span>
+                          {formatMoney(item.value, currency)} <span>{percent.toFixed(1)}%</span>
                         </p>
                       </div>
                     </div>
@@ -283,7 +308,7 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
                 <XAxis type="number" tick={{ fill: "var(--c-text-muted)", fontSize: 12 }} />
                 <YAxis type="category" dataKey="category" width={110} tick={{ fill: "var(--c-text-muted)", fontSize: 12 }} />
                 <Tooltip
-                  formatter={(value) => formatMoney(value)}
+                  formatter={(value) => formatMoney(value, currency)}
                   contentStyle={{ borderRadius: 12, border: "1px solid var(--c-border)", background: "var(--c-surface)", color: "var(--c-text)" }}
                 />
                 <Bar dataKey="total" name="Gastos" fill="var(--c-secondary)" radius={[0, 6, 6, 0]} />
@@ -293,6 +318,60 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
             <p className="hint">Sin gastos para graficar en este periodo.</p>
           )}
         </article>
+      </section>
+
+      <section className="panel owner-list-panel">
+        <div className="owner-list-header">
+          <div>
+            <h3>Viajes menos rentables</h3>
+            <p className="hint">Los cinco viajes del periodo con el margen mas bajo. Empieza por aca.</p>
+          </div>
+          <Link className="quick-link" to="/dashboard/owner/routes">Ver todos</Link>
+        </div>
+
+        <div className="owner-table-wrap">
+          <table className="owner-table owner-table-tight">
+            <thead>
+              <tr>
+                <th>Manifiesto</th>
+                <th>Ruta</th>
+                <th>Salida</th>
+                <th>Vehiculo</th>
+                <th>Conductor</th>
+                <th>Flete</th>
+                <th>Gastos</th>
+                <th>Resultado</th>
+                <th>Margen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {worstManifests.map((item) => (
+                <tr key={item.manifest_id}>
+                  <td>
+                    <Link to={`/dashboard/owner/routes/${item.manifest_id}`}>{item.manifest_number}</Link>
+                  </td>
+                  <td>{item.origin} - {item.destination}</td>
+                  <td>{formatDate(item.departure_date)}</td>
+                  <td>{item.vehicle_plate || "-"}</td>
+                  <td>{item.driver_name || "-"}</td>
+                  <td>{formatMoney(item.freight_value, currency)}</td>
+                  <td>{formatMoney(item.total_expenses, currency)}</td>
+                  <td className={Number(item.net_result || 0) >= 0 ? "kpi-positive" : "kpi-negative"}>
+                    {formatMoney(item.net_result, currency)}
+                  </td>
+                  <td className={Number(item.margin_pct || 0) >= 0 ? "kpi-positive" : "kpi-negative"}>
+                    {formatPercent(item.margin_pct)}
+                  </td>
+                </tr>
+              ))}
+              {worstManifests.length === 0 ? (
+                <tr>
+                  <td colSpan={9}>Sin viajes con flete registrado en este periodo.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {loading ? <p className="hint">Actualizando datos...</p> : null}

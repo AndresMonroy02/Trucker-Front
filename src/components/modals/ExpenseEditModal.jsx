@@ -7,6 +7,7 @@ export default function ExpenseEditModal({
   manifests,
   suppliers,
   expenseTypes,
+  paymentMethods = [],
   onChange,
   onSubmit,
   onClose,
@@ -25,6 +26,7 @@ export default function ExpenseEditModal({
         manifests={manifests}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
+        paymentMethods={paymentMethods}
         onChange={onChange}
         onSubmit={onSubmit}
         onClose={onClose}
@@ -38,7 +40,7 @@ export default function ExpenseEditModal({
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
         title="Eliminar gasto"
-        message="¿Está seguro de eliminar este gasto? Esta acción no se puede deshacer."
+        message="Seguro que quieres eliminar este gasto? Esta accion no se puede deshacer."
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
         onConfirm={onConfirmDelete}

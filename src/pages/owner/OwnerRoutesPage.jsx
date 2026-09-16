@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { api, getErrorMessage } from "../../api";
+import { api, deleteManifest, fetchPaymentMethods, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
+import ConfirmModal from "../../components/modals/ConfirmModal";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import ManifestFormModal from "../../components/modals/ManifestFormModal";
 import TablePagination from "../../components/TablePagination";
-import { formatDate, formatDateTime, formatMoney } from "../../utils/format";
+import { formatDate, formatMoney, formatPercent } from "../../utils/format";
 
 const EMPTY_MANIFEST_FORM = {
   manifest_number: "",
@@ -18,7 +19,8 @@ const EMPTY_MANIFEST_FORM = {
   arrival_date: "",
   cargo_description: "",
   freight_value: "",
-  vehicle_plate: "",
+  currency: "COP",
+  vehicle_id: "",
   driver_id: "",
   status_id: "",
 };
@@ -27,8 +29,9 @@ const EMPTY_MANIFEST_FILTERS = {
   dateFrom: "",
   dateTo: "",
   statusIds: [],
-  vehiclePlate: "",
+  vehicleId: "",
   driverId: "",
+  includeDeleted: false,
 };
 
 const EMPTY_EXPENSE_FORM = {
@@ -38,7 +41,8 @@ const EMPTY_EXPENSE_FORM = {
   description: "",
   amount: "",
   expense_date: "",
-  payment_method: "",
+  payment_method_id: "",
+  paid_from_advance: false,
   reference_code: "",
   location: "",
   is_paid: true,
@@ -83,6 +87,8 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [expenseForms, setExpenseForms] = useState([]);
   const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
   const [expenseManifestLocked, setExpenseManifestLocked] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [manifestDeleteTarget, setManifestDeleteTarget] = useState(null);
   const [currentManifestPage, setCurrentManifestPage] = useState(1);
 
   useEffect(() => {
@@ -107,6 +113,10 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   useEffect(() => {
     fetchActiveDrivers();
+  }, []);
+
+  useEffect(() => {
+    loadPaymentMethods();
   }, []);
 
   useEffect(() => {
@@ -164,8 +174,9 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
           status_ids: manifestFilters.statusIds.length > 0 ? manifestFilters.statusIds : undefined,
           date_from: manifestFilters.dateFrom || undefined,
           date_to: manifestFilters.dateTo || undefined,
-          vehicle_plate: manifestFilters.vehiclePlate || undefined,
+          vehicle_id: manifestFilters.vehicleId || undefined,
           driver_id: manifestFilters.driverId || undefined,
+          include_deleted: manifestFilters.includeDeleted || undefined,
         },
         paramsSerializer: { indexes: null },
       });
@@ -184,6 +195,27 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       setSuppliers(data);
     } catch (err) {
       toast.error(getErrorMessage(err, "No fue posible cargar proveedores."));
+    }
+  }
+
+  async function loadPaymentMethods() {
+    try {
+      const { data } = await fetchPaymentMethods();
+      setPaymentMethods(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible cargar los metodos de pago."));
+    }
+  }
+
+  async function confirmDeleteManifest() {
+    if (!manifestDeleteTarget) return;
+    try {
+      await deleteManifest(manifestDeleteTarget.id);
+      toast.success("Manifiesto eliminado junto con sus gastos y pagos.");
+      setManifestDeleteTarget(null);
+      await fetchManifests(statusFilter, currentManifestPage);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible eliminar el manifiesto."));
     }
   }
 
@@ -240,7 +272,8 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       arrival_date: manifest.arrival_date || "",
       cargo_description: manifest.cargo_description || "",
       freight_value: manifest.freight_value,
-      vehicle_plate: manifest.vehicle_plate || "",
+      currency: manifest.currency || "COP",
+      vehicle_id: manifest.vehicle_id || "",
       driver_id: manifest.driver_id || "",
       status_id: manifest.status_id,
     });
@@ -277,7 +310,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       return {
         ...prev,
         driver_id: value,
-        vehicle_plate: assignedVehicle?.plate || prev.vehicle_plate,
+        vehicle_id: assignedVehicle?.id || prev.vehicle_id,
       };
     });
   }
@@ -337,8 +370,8 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   }
 
   function handleManifestFilterChange(event) {
-    const { name, value } = event.target;
-    setManifestFilters((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = event.target;
+    setManifestFilters((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
     setCurrentManifestPage(1);
   }
 
@@ -365,7 +398,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       freight_value: manifestForm.freight_value ? Number(manifestForm.freight_value) : 0,
       arrival_date: manifestForm.arrival_date || null,
       cargo_description: manifestForm.cargo_description || null,
-      vehicle_plate: manifestForm.vehicle_plate || null,
+      vehicle_id: manifestForm.vehicle_id ? Number(manifestForm.vehicle_id) : null,
       driver_id: manifestForm.driver_id ? Number(manifestForm.driver_id) : null,
       status_id: manifestForm.status_id ? Number(manifestForm.status_id) : null,
     };
@@ -409,7 +442,8 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         description: expenseForm.description,
         amount: Number(expenseForm.amount),
         expense_date: expenseForm.expense_date,
-        payment_method: expenseForm.payment_method || null,
+        payment_method_id: expenseForm.payment_method_id ? Number(expenseForm.payment_method_id) : null,
+        paid_from_advance: Boolean(expenseForm.paid_from_advance),
         reference_code: expenseForm.reference_code || null,
         location: expenseForm.location || null,
         is_paid: expenseForm.is_paid,
@@ -514,16 +548,16 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
             </div>
           </div>
           <div className="field">
-            <label htmlFor="filter_vehicle_plate">Vehiculo</label>
+            <label htmlFor="filter_vehicle_id">Vehiculo</label>
             <select
-              id="filter_vehicle_plate"
-              name="vehiclePlate"
-              value={manifestFilters.vehiclePlate}
+              id="filter_vehicle_id"
+              name="vehicleId"
+              value={manifestFilters.vehicleId}
               onChange={handleManifestFilterChange}
             >
               <option value="">Todos</option>
               {vehicles.map((vehicle) => (
-                <option key={vehicle.plate} value={vehicle.plate}>
+                <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.plate} - {vehicle.model}
                 </option>
               ))}
@@ -545,6 +579,18 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
               ))}
             </select>
           </div>
+          <div className="field">
+            <label className="owner-checkbox" htmlFor="filter_include_deleted">
+              <input
+                id="filter_include_deleted"
+                name="includeDeleted"
+                type="checkbox"
+                checked={manifestFilters.includeDeleted}
+                onChange={handleManifestFilterChange}
+              />
+              Ver eliminados
+            </label>
+          </div>
           <Button type="button" variant="secondary" onClick={clearManifestFilters}>
             Limpiar filtros
           </Button>
@@ -558,11 +604,13 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
                 <th>Ruta</th>
                 <th>Vehiculo</th>
                 <th>Salida</th>
-                <th>Actualizado</th>
                 <th>Estado</th>
                 <th>Flete</th>
+                <th>Cobrado</th>
+                <th>Por cobrar</th>
                 <th>Gastos</th>
                 <th>Resultado</th>
+                <th>Margen</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -573,15 +621,26 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
                   <td>{manifest.origin} - {manifest.destination}</td>
                   <td>{manifest.vehicle_plate || "-"}</td>
                   <td>{formatDate(manifest.departure_date)}</td>
-                  <td>{formatDateTime(manifest.updated_at)}</td>
                   <td>
                     <span className={`status-badge ${getManifestStatusBadgeClass(manifest.status?.code)}`}>
                       {manifest.status?.label || "Sin estado"}
                     </span>
+                    {manifest.deleted_at ? (
+                      <span className="status-badge status-cancelled">Eliminado</span>
+                    ) : null}
                   </td>
-                  <td>{formatMoney(manifest.freight_value)}</td>
-                  <td>{formatMoney(manifest.total_expenses)}</td>
-                  <td>{formatMoney(manifest.net_result)}</td>
+                  <td>{formatMoney(manifest.freight_value, manifest.currency)}</td>
+                  <td>{formatMoney(manifest.total_paid, manifest.currency)}</td>
+                  <td className={Number(manifest.balance_due || 0) > 0 ? "kpi-negative" : undefined}>
+                    {formatMoney(manifest.balance_due, manifest.currency)}
+                  </td>
+                  <td>{formatMoney(manifest.total_expenses, manifest.currency)}</td>
+                  <td className={Number(manifest.net_result || 0) >= 0 ? "kpi-positive" : "kpi-negative"}>
+                    {formatMoney(manifest.net_result, manifest.currency)}
+                  </td>
+                  <td className={Number(manifest.margin_pct || 0) >= 0 ? "kpi-positive" : "kpi-negative"}>
+                    {formatPercent(manifest.margin_pct)}
+                  </td>
                   <td>
                     <div className="owner-row-actions">
                       <Button type="button" variant="secondary" onClick={() => navigate(`/dashboard/owner/routes/${manifest.id}`)}>
@@ -593,6 +652,11 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
                       <Button type="button" onClick={() => openExpenseModal(manifest.id)}>
                         Agregar gasto
                       </Button>
+                      {manifest.deleted_at ? null : (
+                        <Button type="button" variant="cancel" onClick={() => setManifestDeleteTarget(manifest)}>
+                          Eliminar
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -630,6 +694,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         manifests={manifests}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
+        paymentMethods={paymentMethods}
         onChange={handleExpenseInput}
         onAdd={addExpenseForm}
         onEdit={editExpenseForm}
@@ -637,6 +702,20 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         onSubmit={submitExpense}
         onClose={closeExpenseModal}
         lockManifest={expenseManifestLocked}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(manifestDeleteTarget)}
+        title="Eliminar manifiesto"
+        message={
+          manifestDeleteTarget
+            ? `Se eliminara el manifiesto ${manifestDeleteTarget.manifest_number} junto con sus gastos y pagos. Podras verlo de nuevo activando "Ver eliminados".`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={confirmDeleteManifest}
+        onCancel={() => setManifestDeleteTarget(null)}
       />
     </DashboardShell>
   );

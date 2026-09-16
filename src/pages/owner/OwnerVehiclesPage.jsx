@@ -7,7 +7,7 @@ import DashboardShell from "../../components/DashboardShell";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import VehicleFormModal from "../../components/modals/VehicleFormModal";
 import TablePagination from "../../components/TablePagination";
-import { formatDate } from "../../utils/format";
+import { formatDateOnly } from "../../utils/format";
 
 const INITIAL_FORM = {
   plate: "",
@@ -25,7 +25,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
   const [vehicleStatuses, setVehicleStatuses] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingVehiclePlate, setEditingVehiclePlate] = useState(null);
+  const [editingVehicleId, setEditingVehicleId] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("active");
@@ -85,7 +85,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
 
   function openModal() {
     setForm(INITIAL_FORM);
-    setEditingVehiclePlate(null);
+    setEditingVehicleId(null);
     setIsModalOpen(true);
   }
 
@@ -97,13 +97,13 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       status_id: String(vehicle.status_id),
       driver_id: vehicle.driver_id ? String(vehicle.driver_id) : "",
     });
-    setEditingVehiclePlate(vehicle.plate);
+    setEditingVehicleId(vehicle.id);
     setIsModalOpen(true);
   }
 
   function closeModal() {
     setIsModalOpen(false);
-    setEditingVehiclePlate(null);
+    setEditingVehicleId(null);
   }
 
   function handleInputChange(event) {
@@ -136,9 +136,8 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
     };
 
     try {
-      if (editingVehiclePlate) {
-        const { plate, ...updatePayload } = payload;
-        await api.put(`/owner/vehicles/${encodeURIComponent(editingVehiclePlate)}`, updatePayload);
+      if (editingVehicleId) {
+        await api.put(`/owner/vehicles/${editingVehicleId}`, payload);
         toast.success("Vehiculo actualizado correctamente.");
         await fetchVehicles(currentPage, statusFilter);
       } else {
@@ -156,14 +155,14 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
     }
   }
 
-  function requestDelete(plate) {
-    setDeleteTarget(plate);
+  function requestDelete(vehicleId) {
+    setDeleteTarget(vehicleId);
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return;
     try {
-      await api.delete(`/owner/vehicles/${encodeURIComponent(deleteTarget)}`);
+      await api.delete(`/owner/vehicles/${deleteTarget}`);
       toast.success("Vehiculo eliminado correctamente.");
       setDeleteTarget(null);
       closeModal();
@@ -223,7 +222,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
                 <tr><td colSpan={7} className="hint">No hay vehiculos para los filtros seleccionados.</td></tr>
               )}
               {paginatedVehicles.map((vehicle) => (
-                <tr key={vehicle.plate}>
+                <tr key={vehicle.id}>
                   <td>{vehicle.plate}</td>
                   <td>{vehicle.model}</td>
                   <td>{vehicle.year}</td>
@@ -233,7 +232,7 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
                     </span>
                   </td>
                   <td>{vehicle.driver?.name || vehicle.driver_name || "-"}</td>
-                  <td>{formatDate(vehicle.created_at)}</td>
+                  <td>{formatDateOnly(vehicle.created_at)}</td>
                   <td>
                     <button type="button" className="table-action-button" onClick={() => openEditModal(vehicle)}>
                       Editar
@@ -262,8 +261,8 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         onClose={closeModal}
-        isEditing={Boolean(editingVehiclePlate)}
-        onDelete={editingVehiclePlate ? () => requestDelete(editingVehiclePlate) : undefined}
+        isEditing={Boolean(editingVehicleId)}
+        onDelete={editingVehicleId ? () => requestDelete(editingVehicleId) : undefined}
       />
 
       <ConfirmModal

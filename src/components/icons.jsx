@@ -89,6 +89,26 @@ export function IconMail(props) {
   );
 }
 
+export function IconWallet(props) {
+  return (
+    <Svg {...props}>
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h11A1.5 1.5 0 0 1 18 6.5V8" />
+      <path d="M3 7.5V18a2 2 0 0 0 2 2h13.5a1.5 1.5 0 0 0 1.5-1.5V9.5A1.5 1.5 0 0 0 18.5 8H5.5" />
+      <circle cx="16.5" cy="14" r="1.2" />
+    </Svg>
+  );
+}
+
+export function IconHistory(props) {
+  return (
+    <Svg {...props}>
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+      <path d="M3.5 4.5V9h4.5" />
+      <path d="M12 7.5V12l3 1.8" />
+    </Svg>
+  );
+}
+
 export function IconProfile(props) {
   return (
     <Svg {...props}>

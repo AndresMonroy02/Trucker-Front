@@ -19,6 +19,7 @@ import {
   IconSupplier,
   IconTruck,
   IconUser,
+  IconWallet,
 } from "./icons";
 
 const MOBILE_QUERY = "(max-width: 1024px)";
@@ -62,6 +63,7 @@ function getSidebarGroups(role) {
         items: [
           { to: "/dashboard/owner/routes", label: "Manifiestos", Icon: IconRoute },
           { to: "/dashboard/owner/expenses", label: "Gastos", Icon: IconMoney },
+          { to: "/dashboard/owner/finance", label: "Cartera y anticipos", Icon: IconWallet },
           { to: "/dashboard/owner/suppliers", label: "Proveedores", Icon: IconSupplier },
           { to: "/dashboard/owner/vehicles", label: "Vehiculos", Icon: IconTruck },
           { to: "/dashboard/owner/drivers", label: "Conductores", Icon: IconUser },

@@ -18,7 +18,8 @@ const EMPTY_EXPENSE_FORM = {
   description: "",
   amount: "",
   expense_date: "",
-  payment_method: "",
+  payment_method_id: "",
+  paid_from_advance: false,
   reference_code: "",
   location: "",
   is_paid: true,
@@ -50,6 +51,7 @@ export default function DriverManifestsPage({ token, me, onLogout, theme, onTogg
   const [suppliers, setSuppliers] = useState([]);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [expenseForms, setExpenseForms] = useState([]);
   const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
 
@@ -62,6 +64,7 @@ export default function DriverManifestsPage({ token, me, onLogout, theme, onTogg
 
   useEffect(() => {
     fetchExpenseTypes();
+    fetchPaymentMethods();
   }, []);
 
   useEffect(() => {
@@ -86,6 +89,15 @@ export default function DriverManifestsPage({ token, me, onLogout, theme, onTogg
       setExpenseTypes(data);
     } catch (err) {
       toast.error(getErrorMessage(err, "No fue posible cargar los tipos de gasto."));
+    }
+  }
+
+  async function fetchPaymentMethods() {
+    try {
+      const { data } = await api.get("/driver/payment-methods");
+      setPaymentMethods(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible cargar los metodos de pago."));
     }
   }
 
@@ -178,7 +190,8 @@ export default function DriverManifestsPage({ token, me, onLogout, theme, onTogg
         description: item.description,
         amount: Number(item.amount),
         expense_date: item.expense_date,
-        payment_method: item.payment_method || null,
+        payment_method_id: item.payment_method_id ? Number(item.payment_method_id) : null,
+        paid_from_advance: Boolean(item.paid_from_advance),
         reference_code: item.reference_code || null,
         location: item.location || null,
         is_paid: item.is_paid,
@@ -254,8 +267,8 @@ export default function DriverManifestsPage({ token, me, onLogout, theme, onTogg
                       {manifest.status?.label || "Sin estado"}
                     </span>
                   </td>
-                  <td>{formatMoney(manifest.freight_value)}</td>
-                  <td>{formatMoney(manifest.total_expenses)}</td>
+                  <td>{formatMoney(manifest.freight_value, manifest.currency)}</td>
+                  <td>{formatMoney(manifest.total_expenses, manifest.currency)}</td>
                   <td>
                     <div className="owner-row-actions">
                       <Button type="button" variant="secondary" onClick={() => navigate(`/dashboard/driver/manifests/${manifest.id}`)}>
@@ -298,6 +311,7 @@ export default function DriverManifestsPage({ token, me, onLogout, theme, onTogg
         manifests={manifests}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
+        paymentMethods={paymentMethods}
         onChange={handleExpenseInput}
         onAdd={addExpenseForm}
         onEdit={editExpenseForm}

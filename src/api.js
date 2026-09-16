@@ -76,3 +76,49 @@ export function fetchEmailLogs(params) {
   return api.get("/owner/email-logs", { params });
 }
 
+// ---------------------------------------------------------------- dinero
+
+export function fetchPaymentMethods() {
+  return api.get("/owner/payment-methods");
+}
+
+export function fetchManifestPayments(manifestId, params) {
+  return api.get(`/owner/manifests/${manifestId}/payments`, { params });
+}
+
+export function createManifestPayment(manifestId, payload) {
+  return api.post(`/owner/manifests/${manifestId}/payments`, payload);
+}
+
+export function deleteManifestPayment(paymentId) {
+  return api.delete(`/owner/payments/${paymentId}`);
+}
+
+export function fetchAdvances(params) {
+  return api.get("/owner/advances", { params });
+}
+
+export function createAdvance(payload) {
+  return api.post("/owner/advances", payload);
+}
+
+export function deleteAdvance(advanceId) {
+  return api.delete(`/owner/advances/${advanceId}`);
+}
+
+export function fetchAdvanceBalances(params) {
+  return api.get("/owner/advance-balances", { params });
+}
+
+export function fetchReceivables(params) {
+  return api.get("/owner/receivables", { params });
+}
+
+export function fetchAuditLogs(params) {
+  return api.get("/owner/audit-logs", { params });
+}
+
+export function deleteManifest(manifestId) {
+  return api.delete(`/owner/manifests/${manifestId}`);
+}
+

@@ -3,12 +3,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { toast } from "sonner";
 
-import { api, getErrorMessage } from "../../api";
+import { api, fetchPaymentMethods, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
+import ManifestAdvancesPanel from "../../components/manifest/ManifestAdvancesPanel";
+import ManifestAuditPanel from "../../components/manifest/ManifestAuditPanel";
+import ManifestPaymentsPanel from "../../components/manifest/ManifestPaymentsPanel";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import TablePagination from "../../components/TablePagination";
-import { formatDate, formatMoney } from "../../utils/format";
+import { formatDate, formatMoney, formatPercent } from "../../utils/format";
 
 const PAGE_SIZE = 10;
 
@@ -31,7 +34,8 @@ const EMPTY_EXPENSE_FORM = {
   description: "",
   amount: "",
   expense_date: "",
-  payment_method: "",
+  payment_method_id: "",
+  paid_from_advance: false,
   reference_code: "",
   location: "",
   is_paid: true,
@@ -47,10 +51,16 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
   const [currentPage, setCurrentPage] = useState(1);
   const [suppliers, setSuppliers] = useState([]);
   const [expenseTypes, setExpenseTypes] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
   const [expenseForms, setExpenseForms] = useState([]);
   const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
+  /* Bumped after every mutation here, so the audit panel refetches: registering
+     a payment writes a trail entry, and a history that only loads on mount reads
+     as empty exactly when the owner goes to check what they just did. */
+  const [auditReloadKey, setAuditReloadKey] = useState(0);
 
   const totalPages = Math.max(1, Math.ceil(totalExpenses / PAGE_SIZE));
   const expenses = manifestDetail?.expenses ?? [];
@@ -81,6 +91,8 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
   useEffect(() => {
     fetchSuppliers();
     fetchExpenseTypes();
+    loadPaymentMethods();
+    loadDrivers();
   }, []);
 
   async function fetchManifestDetail(id, page) {
@@ -125,6 +137,30 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
     } catch (err) {
       toast.error(getErrorMessage(err, "No fue posible cargar los tipos de gasto."));
     }
+  }
+
+  async function loadPaymentMethods() {
+    try {
+      const { data } = await fetchPaymentMethods();
+      setPaymentMethods(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible cargar los metodos de pago."));
+    }
+  }
+
+  async function loadDrivers() {
+    try {
+      const { data } = await api.get("/owner/drivers", { params: { page: 1, page_size: 100 } });
+      setDrivers(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible cargar conductores."));
+    }
+  }
+
+  // Payments and advances change the trip totals, so the envelope has to be refetched.
+  function refreshTotals() {
+    setAuditReloadKey((prev) => prev + 1);
+    if (manifestId) fetchManifestDetail(manifestId, currentPage);
   }
 
   function openExpenseModal() {
@@ -196,7 +232,9 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
         description: expenseForm.description,
         amount: Number(expenseForm.amount),
         expense_date: expenseForm.expense_date,
-        payment_method: expenseForm.payment_method || null,
+        payment_method_id: expenseForm.payment_method_id ? Number(expenseForm.payment_method_id) : null,
+        paid_from_advance: Boolean(expenseForm.paid_from_advance),
+        currency: manifestDetail?.currency || "COP",
         reference_code: expenseForm.reference_code || null,
         location: expenseForm.location || null,
         is_paid: expenseForm.is_paid,
@@ -210,6 +248,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
       closeExpenseModal();
       await fetchManifestDetail(manifestId, currentPage);
       await fetchExpenseTypeSummary(manifestId);
+      setAuditReloadKey((prev) => prev + 1);
     } catch (err) {
       toast.error(getErrorMessage(err, "No fue posible registrar el gasto."));
     }
@@ -233,23 +272,45 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
         <>
           <section className="owner-kpi-grid manifest-kpi-grid">
             <article className="kpi-card">
-              <p className="kpi-label">Valor manifiesto</p>
-              <p className="kpi-value">{formatMoney(manifestDetail.freight_value)}</p>
-              <p className="kpi-hint">Ingresos proyectados del viaje</p>
+              <p className="kpi-label">Valor del flete</p>
+              <p className="kpi-value">{formatMoney(manifestDetail.freight_value, manifestDetail.currency)}</p>
+              <p className="kpi-hint">Lo acordado con el cliente</p>
+            </article>
+
+            <article className="kpi-card">
+              <p className="kpi-label">Cobrado</p>
+              <p className="kpi-value">{formatMoney(manifestDetail.total_paid, manifestDetail.currency)}</p>
+              <p className="kpi-hint">Lo que el cliente ya pago</p>
+            </article>
+
+            <article className="kpi-card">
+              <p className="kpi-label">Por cobrar</p>
+              <p className={`kpi-value ${Number(manifestDetail.balance_due || 0) > 0 ? "kpi-negative" : "kpi-positive"}`}>
+                {formatMoney(manifestDetail.balance_due, manifestDetail.currency)}
+              </p>
+              <p className="kpi-hint">Saldo pendiente del flete</p>
             </article>
 
             <article className="kpi-card">
               <p className="kpi-label">Total gastos</p>
-              <p className="kpi-value">{formatMoney(manifestDetail.total_expenses)}</p>
+              <p className="kpi-value">{formatMoney(manifestDetail.total_expenses, manifestDetail.currency)}</p>
               <p className="kpi-hint">Suma de egresos de la ruta</p>
             </article>
 
             <article className="kpi-card">
               <p className="kpi-label">Resultado</p>
               <p className={`kpi-value ${Number(manifestDetail.net_result || 0) >= 0 ? "kpi-positive" : "kpi-negative"}`}>
-                {formatMoney(manifestDetail.net_result)}
+                {formatMoney(manifestDetail.net_result, manifestDetail.currency)}
               </p>
               <p className="kpi-hint">Flete menos gastos</p>
+            </article>
+
+            <article className="kpi-card">
+              <p className="kpi-label">Margen</p>
+              <p className={`kpi-value ${Number(manifestDetail.margin_pct || 0) >= 0 ? "kpi-positive" : "kpi-negative"}`}>
+                {formatPercent(manifestDetail.margin_pct)}
+              </p>
+              <p className="kpi-hint">Resultado sobre el flete</p>
             </article>
           </section>
 
@@ -316,6 +377,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                       <th>Fecha</th>
                       <th>Tipo</th>
                       <th>Descripcion</th>
+                      <th>Pago</th>
                       <th>Monto</th>
                       <th>Creado por</th>
                     </tr>
@@ -326,13 +388,21 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                         <td>{formatDate(expense.expense_date)}</td>
                         <td>{expense.expense_type?.label || "-"}</td>
                         <td>{expense.description}</td>
-                        <td>{formatMoney(expense.amount)}</td>
+                        <td>
+                          {expense.payment_method?.label || "-"}
+                          {expense.paid_from_advance ? (
+                            <span className="status-badge status-badge-inline status-pending" title="Descuenta del anticipo del conductor">
+                              Anticipo
+                            </span>
+                          ) : null}
+                        </td>
+                        <td>{formatMoney(expense.amount, expense.currency)}</td>
                         <td>{profileTypeLabel(expense.created_by_profile_type)}</td>
                       </tr>
                     ))}
                     {expenses.length === 0 ? (
                       <tr>
-                        <td colSpan={5}>No hay gastos registrados para esta ruta.</td>
+                        <td colSpan={6}>No hay gastos registrados para esta ruta.</td>
                       </tr>
                     ) : null}
                   </tbody>
@@ -370,7 +440,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(value) => formatMoney(value)}
+                          formatter={(value) => formatMoney(value, manifestDetail?.currency)}
                           contentStyle={{
                             borderRadius: 12,
                             border: "1px solid var(--c-border)",
@@ -396,7 +466,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                           <div>
                             <p className="manifest-pie-label">{item.name}</p>
                             <p className="manifest-pie-value">
-                              {formatMoney(item.value)} <span>{percent.toFixed(1)}%</span>
+                              {formatMoney(item.value, manifestDetail?.currency)} <span>{percent.toFixed(1)}%</span>
                             </p>
                           </div>
                         </div>
@@ -409,6 +479,25 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
               )}
             </article>
           </section>
+
+          <section className="manifest-money-split">
+            <ManifestPaymentsPanel
+              manifestId={manifestId}
+              manifest={manifestDetail}
+              paymentMethods={paymentMethods}
+              onChanged={refreshTotals}
+            />
+
+            <ManifestAdvancesPanel
+              manifestId={manifestId}
+              manifest={manifestDetail}
+              paymentMethods={paymentMethods}
+              drivers={drivers}
+              onChanged={refreshTotals}
+            />
+          </section>
+
+          <ManifestAuditPanel manifestId={manifestId} reloadKey={auditReloadKey} />
 
           <section className="actions-row">
             <Button type="button" variant="secondary" onClick={() => navigate(-1)}>Volver</Button>
@@ -426,6 +515,7 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
         manifests={manifestDetail ? [manifestDetail] : []}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
+        paymentMethods={paymentMethods}
         onChange={handleExpenseInput}
         onAdd={addExpenseForm}
         onEdit={editExpenseForm}

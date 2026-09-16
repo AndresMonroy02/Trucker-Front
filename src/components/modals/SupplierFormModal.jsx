@@ -1,4 +1,5 @@
 import Button from "../Button";
+import ModalBackdrop from "../ModalBackdrop";
 
 export default function SupplierFormModal({
   isOpen,
@@ -13,7 +14,7 @@ export default function SupplierFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <ModalBackdrop onClick={onClose}>
       <section
         className="modal-card"
         role="dialog"
@@ -86,6 +87,6 @@ export default function SupplierFormModal({
           </div>
         </form>
       </section>
-    </div>
+    </ModalBackdrop>
   );
 }

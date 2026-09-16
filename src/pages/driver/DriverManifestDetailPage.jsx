@@ -27,7 +27,8 @@ const EMPTY_EXPENSE_FORM = {
   description: "",
   amount: "",
   expense_date: "",
-  payment_method: "",
+  payment_method_id: "",
+  paid_from_advance: false,
   reference_code: "",
   location: "",
   is_paid: true,
@@ -45,6 +46,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
   const [suppliers, setSuppliers] = useState([]);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [expenseForms, setExpenseForms] = useState([]);
   const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
 
@@ -59,6 +61,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
 
   useEffect(() => {
     fetchExpenseTypes();
+    fetchPaymentMethods();
   }, []);
 
   useEffect(() => {
@@ -92,6 +95,15 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
       setExpenseTypes(data);
     } catch (err) {
       toast.error(getErrorMessage(err, "No fue posible cargar los tipos de gasto."));
+    }
+  }
+
+  async function fetchPaymentMethods() {
+    try {
+      const { data } = await api.get("/driver/payment-methods");
+      setPaymentMethods(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible cargar los metodos de pago."));
     }
   }
 
@@ -173,7 +185,8 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
         description: item.description,
         amount: Number(item.amount),
         expense_date: item.expense_date,
-        payment_method: item.payment_method || null,
+        payment_method_id: item.payment_method_id ? Number(item.payment_method_id) : null,
+        paid_from_advance: Boolean(item.paid_from_advance),
         reference_code: item.reference_code || null,
         location: item.location || null,
         is_paid: item.is_paid,
@@ -219,20 +232,20 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
           <section className="owner-kpi-grid manifest-kpi-grid">
             <article className="kpi-card">
               <p className="kpi-label">Valor manifiesto</p>
-              <p className="kpi-value">{formatMoney(manifestDetail.freight_value)}</p>
+              <p className="kpi-value">{formatMoney(manifestDetail.freight_value, manifestDetail.currency)}</p>
               <p className="kpi-hint">Ingresos proyectados del viaje</p>
             </article>
 
             <article className="kpi-card">
               <p className="kpi-label">Total gastos</p>
-              <p className="kpi-value">{formatMoney(manifestDetail.total_expenses)}</p>
+              <p className="kpi-value">{formatMoney(manifestDetail.total_expenses, manifestDetail.currency)}</p>
               <p className="kpi-hint">Suma de egresos de la ruta</p>
             </article>
 
             <article className="kpi-card">
               <p className="kpi-label">Resultado</p>
               <p className={`kpi-value ${Number(manifestDetail.net_result || 0) >= 0 ? "kpi-positive" : "kpi-negative"}`}>
-                {formatMoney(manifestDetail.net_result)}
+                {formatMoney(manifestDetail.net_result, manifestDetail.currency)}
               </p>
               <p className="kpi-hint">Flete menos gastos</p>
             </article>
@@ -306,7 +319,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
                       <td>{formatDate(expense.expense_date)}</td>
                       <td>{expense.expense_type?.label || "-"}</td>
                       <td>{expense.description}</td>
-                      <td>{formatMoney(expense.amount)}</td>
+                      <td>{formatMoney(expense.amount, expense.currency)}</td>
                       <td>{profileTypeLabel(expense.created_by_profile_type)}</td>
                     </tr>
                   ))}
@@ -342,6 +355,7 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
         manifests={manifestDetail ? [manifestDetail] : []}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
+        paymentMethods={paymentMethods}
         onChange={handleExpenseInput}
         onSubmit={submitExpense}
         onClose={closeExpenseModal}

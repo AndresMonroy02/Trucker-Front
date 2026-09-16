@@ -7,7 +7,7 @@ import DashboardShell from "../../components/DashboardShell";
 import SupplierFormModal from "../../components/modals/SupplierFormModal";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import TablePagination from "../../components/TablePagination";
-import { formatDate } from "../../utils/format";
+import { formatDateOnly } from "../../utils/format";
 
 const EMPTY_SUPPLIER_FORM = {
   name: "",
@@ -252,7 +252,7 @@ export default function OwnerSuppliersPage({ token, me, onLogout, theme, onToggl
                       {supplier.deleted_at ? "Eliminado" : supplier.is_active ? "Activo" : "Inactivo"}
                     </span>
                   </td>
-                  <td>{formatDate(supplier.created_at)}</td>
+                  <td>{formatDateOnly(supplier.created_at)}</td>
                   <td>
                     <button type="button" className="table-action-button" onClick={() => openEditModal(supplier)}>
                       Editar

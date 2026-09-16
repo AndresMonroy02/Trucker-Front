@@ -1,4 +1,5 @@
 import Button from "../Button";
+import ModalBackdrop from "../ModalBackdrop";
 
 export default function DriverFormModal({
   isOpen,
@@ -19,7 +20,7 @@ export default function DriverFormModal({
   const isCreatingNewAccount = !isEditing && form.account_mode === "new";
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <ModalBackdrop onClick={onClose}>
       <section
         className="modal-card"
         role="dialog"
@@ -149,6 +150,6 @@ export default function DriverFormModal({
           </div>
         </form>
       </section>
-    </div>
+    </ModalBackdrop>
   );
 }
