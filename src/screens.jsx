@@ -2,6 +2,7 @@ import { lazy } from "react";
 
 import {
   IconDashboard,
+  IconDocument,
   IconMail,
   IconMoney,
   IconProfile,
@@ -40,6 +41,7 @@ export const SCREEN_COMPONENTS = {
   suppliers: { Icon: IconSupplier, Component: lazy(() => import("./pages/owner/OwnerSuppliersPage")) },
   vehicles: { Icon: IconTruck, Component: lazy(() => import("./pages/owner/OwnerVehiclesPage")) },
   drivers: { Icon: IconUser, Component: lazy(() => import("./pages/owner/OwnerDriversPage")) },
+  documents: { Icon: IconDocument, Component: lazy(() => import("./pages/owner/OwnerDocumentsPage")) },
   emails: { Icon: IconMail, Component: lazy(() => import("./pages/owner/OwnerEmailLogsPage")) },
   team: { Icon: IconProfile, Component: lazy(() => import("./pages/owner/OwnerTeamPage")) },
 };

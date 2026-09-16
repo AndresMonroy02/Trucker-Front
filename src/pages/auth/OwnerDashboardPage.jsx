@@ -82,6 +82,9 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
         manifiestos: Number(item.total_manifest_value || 0),
         cobrado: Number(item.total_paid || 0),
         gastos: Number(item.total_expenses || 0),
+        // Costs booked against this truck outside any trip. Charted beside the
+        // trip figures, never added into them.
+        generales: Number(item.general_expenses || 0),
         resultado: Number(item.net_result || 0),
       })),
     [byVehicle]
@@ -113,6 +116,8 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
   const totalExpenses = Number(totals?.total_expenses || 0);
   const totalManifests = Number(totals?.manifest_count || 0);
   const netMargin = Number(totals?.net_result || 0);
+  const generalExpenses = Number(totals?.total_general_expenses || 0);
+  const netAfterGeneral = Number(totals?.net_result_after_general || 0);
 
   return (
     <DashboardShell
@@ -142,14 +147,29 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
           <span className="kpi-hint">Cartera pendiente del periodo</span>
         </article>
         <article className="kpi-card">
-          <span className="kpi-label">Gastos</span>
+          <span className="kpi-label">Gastos de viaje</span>
           <strong className="kpi-value">{formatMoney(totalExpenses, currency)}</strong>
-          <span className="kpi-hint">Costo operativo consolidado</span>
+          <span className="kpi-hint">Costo de los viajes del periodo</span>
+        </article>
+        {/* Windowed on their own date, not on a departure date -- they have no
+            trip. Kept out of the margin below so a trip's margin never moves
+            because somebody bought tyres that week. */}
+        <article className="kpi-card">
+          <span className="kpi-label">Gastos generales</span>
+          <strong className="kpi-value">{formatMoney(generalExpenses, currency)}</strong>
+          <span className="kpi-hint">Llantas, mantenimiento, polizas: fuera de viaje</span>
         </article>
         <article className="kpi-card">
-          <span className="kpi-label">Resultado</span>
+          <span className="kpi-label">Resultado de viajes</span>
           <strong className={`kpi-value ${netMargin >= 0 ? "kpi-positive" : "kpi-negative"}`}>{formatMoney(netMargin, currency)}</strong>
-          <span className="kpi-hint">Flete menos gastos</span>
+          <span className="kpi-hint">Flete menos gastos de viaje</span>
+        </article>
+        <article className="kpi-card">
+          <span className="kpi-label">Resultado neto</span>
+          <strong className={`kpi-value ${netAfterGeneral >= 0 ? "kpi-positive" : "kpi-negative"}`}>
+            {formatMoney(netAfterGeneral, currency)}
+          </strong>
+          <span className="kpi-hint">Despues de los gastos generales</span>
         </article>
         <article className="kpi-card">
           <span className="kpi-label">Margen</span>
@@ -223,7 +243,10 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
 
         <article className="owner-card">
           <h3>Valor de manifiestos vs gastos</h3>
-          <p className="hint">Comparativo por vehiculo del valor facturado y los gastos asociados.</p>
+          <p className="hint">
+            Por vehiculo: lo facturado, lo cobrado y lo que costo. Los gastos generales
+            (llantas, mantenimiento, polizas) se muestran aparte y no entran en el margen.
+          </p>
           {financialsData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={financialsData}>
@@ -237,7 +260,8 @@ export default function OwnerDashboardPage({ token, me, onLogout, theme, onToggl
                 <Legend />
                 <Bar dataKey="manifiestos" name="Flete" fill="#2e9f7f" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="cobrado" name="Cobrado" fill="#3ea6d6" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="gastos" name="Gastos" fill="#c65a52" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="gastos" name="Gastos de viaje" fill="#c65a52" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="generales" name="Gastos generales" fill="#d99a3f" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="resultado" name="Resultado" fill="#8e79d7" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

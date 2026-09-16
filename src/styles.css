@@ -1402,6 +1402,225 @@ button:focus-visible,
   border-color: var(--c-error-border);
 }
 
+/* ---------------------------------------------------------------------------
+   Compliance documents
+   --------------------------------------------------------------------------- */
+
+.status-expired {
+  background: var(--c-error-bg);
+  color: var(--c-error-text);
+  border-color: var(--c-error-border);
+}
+
+/* Amber, not red: a document that is still valid but close is a deadline, not a
+   fault, and an alert that cries wolf is one people learn to scroll past. */
+.status-expiring {
+  background: var(--c-warning-bg);
+  color: var(--c-warning-text);
+  border-color: var(--c-warning-border);
+}
+
+.status-valid {
+  background: var(--c-success-bg);
+  color: var(--c-success-text);
+  border-color: var(--c-success-border);
+}
+
+.document-alert-panel {
+  border-left: 4px solid var(--c-warning-border);
+}
+
+.document-alert-panel.is-critical {
+  border-left-color: var(--c-error-border);
+}
+
+.document-alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.document-alert-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface-soft);
+}
+
+.document-alert-list li .hint {
+  margin: 0;
+}
+
+/* Pushes the action to the right on a wide row and lets it wrap under on a
+   phone, without a media query. */
+.document-alert-list li .table-action-button {
+  margin-left: auto;
+}
+
+/* Cuotas -------------------------------------------------------------- */
+
+.document-plan-cell {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+
+.document-plan-cell .hint {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.document-plan-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface-soft);
+}
+
+.document-plan-summary > div {
+  display: grid;
+  gap: 2px;
+}
+
+.document-plan-summary .hint {
+  margin: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.document-plan-form {
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface-soft);
+}
+
+/* The cuota table needs more room than the default modal gives it.
+   Two classes, not one: .modal-card is declared further down this file, so a
+   single-class rule here loses to it on source order and the table gets cut. */
+.modal-card.modal-card-wide {
+  width: min(860px, 100%);
+}
+
+/* Previewing the attached scan ------------------------------------------ */
+
+.document-preview-frame {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  /* Tall enough to read a page, capped so the modal never outgrows the screen. */
+  max-height: min(70vh, 720px);
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface-soft);
+}
+
+.document-preview-frame img {
+  max-width: 100%;
+  max-height: min(70vh, 720px);
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.document-preview-frame iframe {
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 0;
+  border-radius: 6px;
+  /* The PDF viewer paints its own background; white keeps a scan from sitting
+     on the dark surface while it loads. */
+  background: #ffffff;
+}
+
+/* An anchor that has to look like a Button, because a download must be a real
+   navigation rather than a click handler. */
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border: 1px solid var(--c-primary);
+  border-radius: 10px;
+  background: var(--c-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.button-link:hover {
+  background: var(--c-primary-strong);
+  border-color: var(--c-primary-strong);
+}
+
+/* The attached scan ----------------------------------------------------- */
+
+/* A hint that is a caution rather than an aside -- the duplicate-expense notice. */
+.hint-warning {
+  padding: 8px 10px;
+  border: 1px solid var(--c-warning-border);
+  border-left: 3px solid var(--c-warning-text);
+  border-radius: 8px;
+  background: var(--c-warning-bg);
+  color: var(--c-warning-text);
+}
+
+/* A checkbox that does not apply right now: still readable, clearly inert. */
+.owner-checkbox.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.document-file-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.document-file-marker {
+  margin-left: 6px;
+  font-size: 0.85rem;
+  /* Decorative next to the type label; the title attribute carries the name,
+     and "Ver archivo" in Acciones is the actual control. */
+  opacity: 0.75;
+}
+
+.document-preview-empty {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  max-width: 460px;
+  padding: 24px;
+  text-align: center;
+}
+
+/* A renewed document stays on file as history; it should read as background. */
+.owner-table tr.is-superseded td {
+  color: var(--c-text-faint);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

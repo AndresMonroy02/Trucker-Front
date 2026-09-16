@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { api, getErrorMessage } from "../../api";
+import { IfCanEdit } from "../../access";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
 import ExpenseEditModal from "../../components/modals/ExpenseEditModal";
@@ -12,6 +13,7 @@ const PAGE_SIZE = 8;
 
 const EMPTY_EXPENSE_FORM = {
   manifest_id: "",
+  vehicle_id: "",
   supplier_id: "",
   expense_type_id: "",
   description: "",
@@ -27,7 +29,10 @@ const EMPTY_EXPENSE_FORM = {
 
 function toExpenseForm(expense) {
   return {
-    manifest_id: String(expense.manifest_id),
+    // Empty, not "null": a general expense has no trip.
+    manifest_id: expense.manifest_id ? String(expense.manifest_id) : "",
+    vehicle_id: expense.vehicle_id ? String(expense.vehicle_id) : "",
+    document_payment_id: expense.document_payment_id || null,
     supplier_id: expense.supplier_id ? String(expense.supplier_id) : "",
     expense_type_id: String(expense.expense_type_id),
     description: expense.description || "",
@@ -62,14 +67,24 @@ const EMPTY_FILTERS = {
   date_to: "",
   expense_type_id: "",
   created_by_profile_type: "",
+  scope: "all",
 };
+
+const SCOPE_OPTIONS = [
+  { value: "all", label: "Todos" },
+  { value: "manifest", label: "De viajes" },
+  { value: "general", label: "Generales" },
+  { value: "cuota", label: "Cuotas de documentos" },
+];
 
 export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [expenses, setExpenses] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [manifests, setManifests] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [isCreating, setIsCreating] = useState(false);
   const [expenseTypes, setExpenseTypes] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
@@ -98,6 +113,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
           date_to: activeFilters.date_to || undefined,
           expense_type_id: activeFilters.expense_type_id || undefined,
           created_by_profile_type: activeFilters.created_by_profile_type || undefined,
+          scope: activeFilters.scope && activeFilters.scope !== "all" ? activeFilters.scope : undefined,
         },
       });
       setExpenses(data);
@@ -127,6 +143,11 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
         api.get("/owner/payment-methods"),
       ]);
       setManifests(manifestResponse.data);
+      api
+        .get("/owner/vehicles", { params: { page: 1, page_size: 100 } })
+        .then(({ data }) => setVehicles(data))
+        // Only feeds the optional vehicle picker on a general expense.
+        .catch(() => setVehicles([]));
       setSuppliers(supplierResponse.data);
       setExpenseTypes(expenseTypeResponse.data);
       setPaymentMethods(paymentMethodResponse.data);
@@ -142,19 +163,35 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
 
   function closeEditExpense() {
     setEditingExpense(null);
+    setIsCreating(false);
     setExpenseForm(EMPTY_EXPENSE_FORM);
     setIsDeleteConfirmOpen(false);
   }
 
   function handleExpenseInput(event) {
     const { name, value, type, checked } = event.target;
-    setExpenseForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setExpenseForm((prev) => {
+      const next = { ...prev, [name]: type === "checkbox" ? checked : value };
+      // Taking the trip off also takes the anticipo with it: without a manifest
+      // there is no driver balance to settle, and leaving the flag set would make
+      // the save fail on a checkbox the form has already hidden.
+      if (name === "manifest_id" && !value) {
+        next.paid_from_advance = false;
+        next.vehicle_id = prev.vehicle_id || "";
+      }
+      return next;
+    });
   }
 
   async function submitExpenseEdit(event) {
     event.preventDefault();
     const payload = {
-      manifest_id: Number(expenseForm.manifest_id),
+      manifest_id: expenseForm.manifest_id ? Number(expenseForm.manifest_id) : null,
+      // Only ever sent for a general expense; a trip expense takes the trip's truck.
+      vehicle_id:
+        !expenseForm.manifest_id && expenseForm.vehicle_id
+          ? Number(expenseForm.vehicle_id)
+          : null,
       supplier_id: expenseForm.supplier_id ? Number(expenseForm.supplier_id) : null,
       expense_type_id: Number(expenseForm.expense_type_id),
       description: expenseForm.description,
@@ -169,13 +206,23 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
     };
 
     try {
-      await api.put(`/owner/expenses/${editingExpense.id}`, payload);
-      toast.success("Gasto actualizado correctamente.");
+      if (isCreating) {
+        await api.post("/owner/expenses", payload);
+        toast.success("Gasto registrado correctamente.");
+      } else {
+        await api.put(`/owner/expenses/${editingExpense.id}`, payload);
+        toast.success("Gasto actualizado correctamente.");
+      }
       closeEditExpense();
       await fetchExpenses(currentPage, filters);
     } catch (err) {
-      toast.error(getErrorMessage(err, "No fue posible actualizar el gasto."));
+      toast.error(getErrorMessage(err, "No fue posible guardar el gasto."));
     }
+  }
+
+  function openCreateExpense() {
+    setExpenseForm(EMPTY_EXPENSE_FORM);
+    setIsCreating(true);
   }
 
   function requestDeleteExpense() {
@@ -219,8 +266,15 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
         <div className="owner-list-header">
           <div>
             <h3>Lista de gastos</h3>
-            <p className="hint">Ordenados por fecha descendente. Total: {totalExpenses}</p>
+            <p className="hint">
+              Ordenados por fecha descendente. Total: {totalExpenses}. Un gasto sin
+              manifiesto (llantas, mantenimiento) se reporta aparte y no afecta el
+              margen de ningun viaje.
+            </p>
           </div>
+          <IfCanEdit screen="expenses">
+            <Button onClick={openCreateExpense}>Registrar gasto</Button>
+          </IfCanEdit>
         </div>
 
         <div className="owner-filters-row">
@@ -254,6 +308,14 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
             </select>
           </div>
           <div className="field">
+            <label htmlFor="filter_scope">Origen</label>
+            <select id="filter_scope" name="scope" value={filters.scope} onChange={handleFilterChange}>
+              {SCOPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
             <label htmlFor="filter_creator">Creado por</label>
             <select id="filter_creator" name="created_by_profile_type" value={filters.created_by_profile_type} onChange={handleFilterChange}>
               {CREATOR_OPTIONS.map((option) => (
@@ -272,7 +334,7 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
               <tr>
                 <th>Fecha</th>
                 <th>Manifiesto</th>
-                <th>Ruta</th>
+                <th>Vehiculo</th>
                 <th>Tipo</th>
                 <th>Descripcion</th>
                 <th>Proveedor</th>
@@ -287,10 +349,26 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
               {paginatedExpenses.map((expense) => (
                 <tr key={expense.id}>
                   <td>{formatDate(expense.expense_date)}</td>
-                  <td>{expense.manifest_number}</td>
-                  <td>{expense.manifest_origin} - {expense.manifest_destination}</td>
+                  <td>
+                    {expense.manifest_number ? (
+                      <>
+                        {expense.manifest_number}
+                        <span className="hint"> {expense.manifest_origin} - {expense.manifest_destination}</span>
+                      </>
+                    ) : (
+                      <span className="status-badge status-neutral">General</span>
+                    )}
+                  </td>
+                  <td>{expense.vehicle_plate || "-"}</td>
                   <td>{expense.expense_type?.label || "-"}</td>
-                  <td>{expense.description}</td>
+                  <td>
+                    {expense.description}
+                    {/* So "did I already record this cuota?" is answerable on
+                        screen rather than from memory. */}
+                    {expense.document_payment_id && (
+                      <span className="status-badge status-valid"> Cuota de poliza</span>
+                    )}
+                  </td>
                   <td>{expense.supplier_name || "-"}</td>
                   <td>{formatMoney(expense.amount, expense.currency)}</td>
                   <td>{expense.is_paid ? "Pagado" : "Pendiente"}</td>
@@ -313,16 +391,18 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
       </section>
 
       <ExpenseEditModal
-        isOpen={Boolean(editingExpense)}
+        isOpen={Boolean(editingExpense) || isCreating}
         form={expenseForm}
         manifests={manifests}
+        vehicles={vehicles}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
         paymentMethods={paymentMethods}
         onChange={handleExpenseInput}
         onSubmit={submitExpenseEdit}
         onClose={closeEditExpense}
-        onDelete={requestDeleteExpense}
+        onDelete={isCreating ? undefined : requestDeleteExpense}
+        isNew={isCreating}
         isDeleteConfirmOpen={isDeleteConfirmOpen}
         onConfirmDelete={confirmDeleteExpense}
         onCancelDelete={cancelDeleteExpense}
