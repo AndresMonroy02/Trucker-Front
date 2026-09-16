@@ -122,3 +122,33 @@ export function deleteManifest(manifestId) {
   return api.delete(`/owner/manifests/${manifestId}`);
 }
 
+
+// Team: who else can log into this account. See accounts/permissions.py for the
+// registry that decides which screens each role reaches.
+export function fetchMyAccess() {
+  return api.get("/me/access");
+}
+
+export function fetchTeamMembers() {
+  return api.get("/owner/team");
+}
+
+export function fetchTeamRoles() {
+  return api.get("/owner/team/roles");
+}
+
+export function inviteTeamMember(payload) {
+  return api.post("/owner/team", payload);
+}
+
+export function updateTeamMember(membershipId, payload) {
+  return api.put(`/owner/team/${membershipId}`, payload);
+}
+
+export function resendTeamInvite(membershipId) {
+  return api.post(`/owner/team/${membershipId}/resend-invite`);
+}
+
+export function deleteTeamMember(membershipId) {
+  return api.delete(`/owner/team/${membershipId}`);
+}

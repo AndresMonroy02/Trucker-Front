@@ -12,22 +12,17 @@ import logo from "./assets/trucker_no_text.png";
 import { getDashboardPathByRole } from "./utils/roleRouting";
 
 // Route-level code splitting: the login screen no longer ships every dashboard.
+import { AccessProvider } from "./access";
+import OwnerScreens from "./OwnerScreens";
+
 const AdminDashboardPage = lazy(() => import("./pages/owner/AdminDashboardPage"));
 const DashboardPage = lazy(() => import("./pages/auth/DashboardPage"));
 const DriverDashboardPage = lazy(() => import("./pages/driver/DriverDashboardPage"));
 const DriverManifestDetailPage = lazy(() => import("./pages/driver/DriverManifestDetailPage"));
 const DriverManifestsPage = lazy(() => import("./pages/driver/DriverManifestsPage"));
 const GeneralDashboardPage = lazy(() => import("./pages/auth/GeneralDashboardPage"));
-const OwnerDriversPage = lazy(() => import("./pages/owner/OwnerDriversPage"));
-const OwnerExpensesPage = lazy(() => import("./pages/owner/OwnerExpensesPage"));
 const ProfilePage = lazy(() => import("./pages/auth/ProfilePage"));
-const OwnerDashboardPage = lazy(() => import("./pages/auth/OwnerDashboardPage"));
 const OwnerManifestDetailPage = lazy(() => import("./pages/owner/OwnerManifestDetailPage"));
-const OwnerVehiclesPage = lazy(() => import("./pages/owner/OwnerVehiclesPage"));
-const OwnerRoutesPage = lazy(() => import("./pages/owner/OwnerRoutesPage"));
-const OwnerSuppliersPage = lazy(() => import("./pages/owner/OwnerSuppliersPage"));
-const OwnerEmailLogsPage = lazy(() => import("./pages/owner/OwnerEmailLogsPage"));
-const OwnerFinancePage = lazy(() => import("./pages/owner/OwnerFinancePage"));
 
 const EMPTY_REGISTER = {
   username: "",
@@ -130,6 +125,7 @@ export default function App() {
   const isDashboardRoute = location.pathname.startsWith("/dashboard");
 
   return (
+    <AccessProvider token={token} me={me}>
     <main className={`page ${isDashboardRoute ? "page-dashboard" : ""}`}>
       <section className={`card ${isDashboardRoute ? "card-dashboard" : ""}`}>
         {!isDashboardRoute ? (
@@ -188,123 +184,18 @@ export default function App() {
               </RequireAuth>
             }
           />
+          {/* Every screen with a sidebar entry, generated from the registry the
+              API serves at /me/access. Adding a screen means adding it there and
+              in src/screens.jsx -- not here. */}
           <Route
-            path="/dashboard/owner"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerDashboardPage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/owner/vehicles"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerVehiclesPage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/owner/drivers"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerDriversPage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/owner/routes"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerRoutesPage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
+            path="/dashboard/owner/*"
+            element={<OwnerScreens token={token} me={me} theme={theme} toggleTheme={toggleTheme} logout={logout} />}
           />
           <Route
             path="/dashboard/owner/routes/:manifestId"
             element={
               <RequireAuth token={token} me={me} role="owner_profile">
                 <OwnerManifestDetailPage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/owner/suppliers"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerSuppliersPage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/owner/emails"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerEmailLogsPage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/owner/finance"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerFinancePage
-                  token={token}
-                  me={me}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  onLogout={logout}
-                />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/owner/expenses"
-            element={
-              <RequireAuth token={token} me={me} role="owner_profile">
-                <OwnerExpensesPage
                   token={token}
                   me={me}
                   theme={theme}
@@ -404,5 +295,6 @@ export default function App() {
         </Suspense>
       </section>
     </main>
+    </AccessProvider>
   );
 }

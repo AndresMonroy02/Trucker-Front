@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import logo from "../assets/trucker_no_text.png";
+import { useAccess } from "../access";
+import { SCREEN_COMPONENTS } from "../screens";
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -51,30 +53,37 @@ function getRoleLabel(role) {
   return roleLabels[role] || "Sin perfil";
 }
 
-function getSidebarGroups(role) {
+function getSidebarGroups(role, screens) {
+  // The owner dashboard is built from GET /me/access, so a screen added to the
+  // backend registry appears here for the roles that may open it -- without this
+  // file knowing the screen exists. The other roles keep their fixed lists.
+  if (role === "owner_profile") {
+    const groups = [];
+    screens.forEach((screen) => {
+      const entry = SCREEN_COMPONENTS[screen.key];
+      if (!entry) return;
+      let group = groups.find((candidate) => candidate.title === screen.group);
+      if (!group) {
+        group = { title: screen.group, items: [] };
+        groups.push(group);
+      }
+      group.items.push({ to: screen.path, label: screen.label, Icon: entry.Icon });
+    });
+    groups.push({
+      title: "Cuenta",
+      items: [{ to: "/dashboard/profile", label: "Mi perfil", Icon: IconProfile }],
+    });
+    // "Equipo" and "Mi perfil" both belong under Cuenta; merge rather than repeat it.
+    const merged = [];
+    groups.forEach((group) => {
+      const existing = merged.find((candidate) => candidate.title === group.title);
+      if (existing) existing.items.push(...group.items);
+      else merged.push(group);
+    });
+    return merged;
+  }
+
   const baseGroups = {
-    owner_profile: [
-      {
-        title: "Resumen",
-        items: [{ to: "/dashboard/owner", label: "Panel principal", Icon: IconDashboard }],
-      },
-      {
-        title: "Operacion",
-        items: [
-          { to: "/dashboard/owner/routes", label: "Manifiestos", Icon: IconRoute },
-          { to: "/dashboard/owner/expenses", label: "Gastos", Icon: IconMoney },
-          { to: "/dashboard/owner/finance", label: "Cartera y anticipos", Icon: IconWallet },
-          { to: "/dashboard/owner/suppliers", label: "Proveedores", Icon: IconSupplier },
-          { to: "/dashboard/owner/vehicles", label: "Vehiculos", Icon: IconTruck },
-          { to: "/dashboard/owner/drivers", label: "Conductores", Icon: IconUser },
-          { to: "/dashboard/owner/emails", label: "Correos", Icon: IconMail },
-        ],
-      },
-      {
-        title: "Cuenta",
-        items: [{ to: "/dashboard/profile", label: "Mi perfil", Icon: IconProfile }],
-      },
-    ],
     driver_profile: [
       {
         title: "Resumen",
@@ -115,7 +124,7 @@ function getSidebarGroups(role) {
     ],
   };
 
-  return baseGroups[role] || baseGroups.user;
+  return baseGroups[role] || [];
 }
 
 export default function DashboardShell({ me, title, subtitle, onLogout, theme, onToggleTheme, children }) {
@@ -136,7 +145,8 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
     }
   });
 
-  const sidebarGroups = getSidebarGroups(me?.role);
+  const access = useAccess();
+  const sidebarGroups = getSidebarGroups(me?.role, access.screens);
   const isSidebarCollapsed = !isMobile && isCollapsed;
   const isDark = theme === "dark";
 

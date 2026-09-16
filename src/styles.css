@@ -1110,6 +1110,28 @@ button:focus-visible,
 
 /* The role qualifies the name, so it must not read louder than it: the shared
    .hint is 0.94rem against a 0.78rem table cell, which inverted the two. */
+/* The role explanation under the invite picker. People read this sentence
+   instead of a permissions table, so it needs to be legible, not a footnote. */
+.role-preview {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--c-surface) 70%, transparent);
+}
+
+.role-preview-screens {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--c-text-muted);
+  line-height: 1.45;
+}
+
+.role-preview-screens strong {
+  color: var(--c-text);
+}
+
 .audit-actor-role {
   display: block;
   font-size: 0.7rem;
