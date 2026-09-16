@@ -8,6 +8,7 @@ export default function ExpenseFormModal({
   expenses,
   editingIndex,
   manifests,
+  vehicles = [],
   suppliers,
   expenseTypes,
   paymentMethods = [],
@@ -19,8 +20,17 @@ export default function ExpenseFormModal({
   onRemove,
   onDelete,
   isEditingExisting = false,
+  isNew = false,
   lockManifest = false,
 }) {
+  // Seguros is the type a poliza or SOAT cuota is recorded under, so it is the
+  // one worth warning about being entered twice.
+  const isInsuranceType = expenseTypes.some(
+    (type) => String(type.id) === String(form.expense_type_id) && type.code === "insurance",
+  );
+  // No trip means no driver whose advance could have paid for it.
+  const isGeneral = !form.manifest_id;
+
   if (!isOpen) return null;
 
   return (
@@ -32,7 +42,7 @@ export default function ExpenseFormModal({
         aria-label="Registrar gasto"
         onClick={(event) => event.stopPropagation()}
       >
-        <h3>{isEditingExisting || editingIndex !== null ? "Editar gasto" : "Nuevo gasto"}</h3>
+        <h3>{isNew ? "Nuevo gasto" : isEditingExisting || editingIndex !== null ? "Editar gasto" : "Nuevo gasto"}</h3>
         <form className="owner-form" onSubmit={onSubmit} noValidate>
           <div className="field">
             <label htmlFor="expense_manifest_id">Manifiesto</label>
@@ -42,9 +52,10 @@ export default function ExpenseFormModal({
               value={form.manifest_id}
               onChange={onChange}
               disabled={lockManifest}
-              required
             >
-              <option value="">Selecciona un manifiesto</option>
+              {/* Optional now: tyres, a workshop bill or the office rent belong to
+                  no trip. Choosing this reveals the vehicle picker instead. */}
+              <option value="">Sin manifiesto - gasto general</option>
               {manifests.map((manifest) => (
                 <option key={manifest.id} value={manifest.id}>
                   {manifest.manifest_number} ({manifest.status?.label || "Sin estado"})
@@ -52,6 +63,35 @@ export default function ExpenseFormModal({
               ))}
             </select>
           </div>
+
+          {/* A trip expense takes its truck from the trip, so the two are never
+              offered together -- which is also what the check constraint says. */}
+          {!form.manifest_id && (
+            <div className="field">
+              <label htmlFor="expense_vehicle_id">Vehiculo (opcional)</label>
+              <select id="expense_vehicle_id" name="vehicle_id" value={form.vehicle_id} onChange={onChange}>
+                <option value="">Sin vehiculo - gasto de la empresa</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.plate} - {vehicle.model}
+                  </option>
+                ))}
+              </select>
+              <p className="hint">
+                Un gasto general no afecta el margen de ningun viaje. Se reporta aparte
+                en el panel, y por vehiculo cuando indicas uno.
+              </p>
+            </div>
+          )}
+
+          {/* The duplicate nobody can detect for you: a cuota already recorded by
+              the documents screen, typed in again here. */}
+          {isInsuranceType && !form.document_payment_id && (
+            <p className="hint hint-warning">
+              Las cuotas de polizas y SOAT ya generan su gasto al marcarse como pagadas
+              en Documentos. Revisa que no lo estes registrando dos veces.
+            </p>
+          )}
 
           <fieldset className="expense-entry">
             <legend>{editingIndex === null ? "Datos del gasto" : "Editando gasto"}</legend>
@@ -123,18 +163,25 @@ export default function ExpenseFormModal({
                 <input name="is_paid" type="checkbox" checked={form.is_paid} onChange={onChange} />
                 Gasto pagado
               </label>
-              <label className="owner-checkbox">
+              {/* An anticipo is cash handed to a driver FOR A TRIP, and the balance
+                  that settles it reaches the driver through the manifest. With no
+                  trip there is no driver to credit, so the flag would settle
+                  nothing while the row went on claiming it did. The API refuses
+                  the same combination. */}
+              <label className={`owner-checkbox ${isGeneral ? "is-disabled" : ""}`}>
                 <input
                   name="paid_from_advance"
                   type="checkbox"
-                  checked={form.paid_from_advance}
+                  checked={form.paid_from_advance && !isGeneral}
                   onChange={onChange}
+                  disabled={isGeneral}
                 />
                 Pagado con anticipo del conductor
               </label>
               <p className="hint">
-                Marca esta casilla solo si el conductor lo pago con el dinero que le entregaste.
-                Descuenta del saldo que te debe.
+                {isGeneral
+                  ? "Solo aplica a gastos de un manifiesto: el anticipo se descuenta del saldo del conductor del viaje."
+                  : "Marca esta casilla solo si el conductor lo pago con el dinero que le entregaste. Descuenta del saldo que te debe."}
               </p>
           </fieldset>
 
@@ -161,7 +208,7 @@ export default function ExpenseFormModal({
 
           <div className="actions-row">
             {!isEditingExisting && <Button type="button" onClick={onAdd}>{editingIndex === null ? "Agregar gasto a la lista" : "Actualizar gasto"}</Button>}
-            <Button type="submit">{isEditingExisting ? "Guardar cambios" : "Guardar gastos"}</Button>
+            <Button type="submit">{isNew ? "Guardar gasto" : isEditingExisting ? "Guardar cambios" : "Guardar gastos"}</Button>
             {isEditingExisting && onDelete && (
               <Button type="button" variant="cancel" onClick={onDelete}>
                 Eliminar

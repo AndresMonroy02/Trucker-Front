@@ -5,6 +5,7 @@ export default function ExpenseEditModal({
   isOpen,
   form,
   manifests,
+  vehicles = [],
   suppliers,
   expenseTypes,
   paymentMethods = [],
@@ -15,6 +16,9 @@ export default function ExpenseEditModal({
   isDeleteConfirmOpen,
   onConfirmDelete,
   onCancelDelete,
+  // True when this is a new expense rather than an edit; drives the heading
+  // and the submit label only.
+  isNew = false,
 }) {
   return (
     <>
@@ -24,6 +28,7 @@ export default function ExpenseEditModal({
         expenses={[]}
         editingIndex={null}
         manifests={manifests}
+        vehicles={vehicles}
         suppliers={suppliers}
         expenseTypes={expenseTypes}
         paymentMethods={paymentMethods}
@@ -35,6 +40,7 @@ export default function ExpenseEditModal({
         onRemove={() => undefined}
         onDelete={onDelete}
         isEditingExisting
+        isNew={isNew}
       />
 
       <ConfirmModal
