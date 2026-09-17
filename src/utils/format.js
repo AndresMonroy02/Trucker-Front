@@ -56,3 +56,17 @@ export function formatDateTime(value) {
     minute: "2-digit",
   });
 }
+
+/**
+ * A file size in the largest unit that keeps it readable.
+ *
+ * Lives here rather than in each modal: four screens now show an attachment, and
+ * the two that existed first had this function copy-pasted between them. Returns
+ * an empty string rather than "-" for a missing size, because it renders inline
+ * beside a filename, not in a table cell.
+ */
+export function formatFileSize(bytes) {
+  if (!bytes) return "";
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}

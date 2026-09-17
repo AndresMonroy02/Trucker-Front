@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
-import logo from "../assets/trucker_no_text.png";
+import { BRAND_LOGO, BRAND_NAME } from "../brand";
 import { useAccess } from "../access";
 import { SCREEN_COMPONENTS } from "../screens";
 import {
@@ -225,9 +225,9 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
       >
         <div className="sidebar-brand">
           <div className="sidebar-brand-identity">
-            <img className="sidebar-logo" src={logo} alt="Trucker" width="596" height="477" />
+            <img className="sidebar-logo" src={BRAND_LOGO} alt={BRAND_NAME} width="596" height="477" />
             <span className="sidebar-brand-text">
-              <strong>Trucker</strong>
+              <strong>{BRAND_NAME}</strong>
               <small>Control de operacion</small>
             </span>
           </div>

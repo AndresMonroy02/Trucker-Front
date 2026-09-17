@@ -110,6 +110,24 @@ export function IconDocument(props) {
   );
 }
 
+export function IconBox(props) {
+  return (
+    <Svg {...props}>
+      <path d="M21 8.5 12 3.5 3 8.5v7L12 20.5l9-5v-7Z" />
+      <path d="m3 8.5 9 5 9-5" />
+      <path d="M12 13.5v7" />
+    </Svg>
+  );
+}
+
+export function IconWrench(props) {
+  return (
+    <Svg {...props}>
+      <path d="M15.5 3.5a5 5 0 0 0-6.2 6.2L3.8 15.2a2 2 0 0 0 0 2.8l2.2 2.2a2 2 0 0 0 2.8 0l5.5-5.5a5 5 0 0 0 6.2-6.2l-3 3-2.8-.7-.7-2.8 3-3Z" />
+    </Svg>
+  );
+}
+
 export function IconHistory(props) {
   return (
     <Svg {...props}>

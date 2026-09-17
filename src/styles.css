@@ -1889,3 +1889,111 @@ button:focus-visible,
     transform: translateY(0);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The fleet as cards
+   --------------------------------------------------------------------------- */
+
+/* Both classes, deliberately: the 1024px breakpoint collapses .owner-grid to a
+   single column for the dashboard charts, and a plain .owner-grid-cards would
+   lose to it on source order. auto-fill already narrows to one column on its own
+   once the cards no longer fit. */
+.owner-grid.owner-grid-cards {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  align-items: start;
+}
+
+.vehicle-card h4 {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+}
+
+.vehicle-photo {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-soft);
+}
+
+.vehicle-photo-empty {
+  display: grid;
+  place-items: center;
+  border-style: dashed;
+}
+
+/* Two buttons acting as one control. There is no segmented control in the app,
+   so this is the outlined pill button with the pressed state carried by
+   aria-pressed rather than a class -- the attribute is the state. */
+.view-toggle {
+  display: inline-flex;
+  gap: 0;
+}
+
+.view-toggle .table-action-button {
+  border-radius: 0;
+}
+
+.view-toggle .table-action-button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.view-toggle .table-action-button:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left-width: 0;
+}
+
+.view-toggle .table-action-button[aria-pressed="true"] {
+  background: var(--c-primary);
+  color: var(--c-surface);
+}
+
+/* The report's own switches, above the list: what goes in the document, as
+   opposed to which rows do. */
+.report-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface-soft);
+}
+
+/* A labelled set of switches inside the options block: the truck's papers,
+   where there is more than one of a kind to choose between. */
+.report-option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The report picker's row list. Capped so a truck with a long history does not
+   push the Generar button off the bottom of the modal. */
+.report-picker {
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.report-picker input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--c-primary);
+  cursor: pointer;
+}
+
+/* The picked or saved image, shown in the form itself. A photo field where you
+   cannot see the photo is just a filename. */
+.attachment-thumb {
+  width: 100%;
+  max-width: 260px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-soft);
+  margin-bottom: 8px;
+}

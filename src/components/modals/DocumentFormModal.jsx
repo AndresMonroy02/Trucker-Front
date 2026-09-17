@@ -2,12 +2,7 @@ import { useMemo } from "react";
 
 import Button from "../Button";
 import ModalBackdrop from "../ModalBackdrop";
-
-function formatFileSize(bytes) {
-  if (!bytes) return "";
-  const mb = bytes / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
-}
+import { formatFileSize } from "../../utils/format";
 
 /**
  * Register or renew a compliance document.

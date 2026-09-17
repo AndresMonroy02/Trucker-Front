@@ -1,3 +1,4 @@
+import AttachmentField from "../AttachmentField";
 import Button from "../Button";
 import ModalBackdrop from "../ModalBackdrop";
 
@@ -11,6 +12,15 @@ export default function VehicleFormModal({
   onClose,
   onDelete,
   isEditing = false,
+  // The photo already on the row, and one chosen before a new vehicle exists.
+  // The upload endpoint needs an id, so the page holds the file until there is
+  // one -- nobody should have to save, reopen, and attach.
+  photo = null,
+  pendingPhoto = null,
+  isUploading = false,
+  onPhotoChange,
+  onRemovePhoto,
+  onClearPendingPhoto,
 }) {
   if (!isOpen) return null;
 
@@ -42,7 +52,7 @@ export default function VehicleFormModal({
 
           <div className="owner-inline-fields">
             <div className="field">
-              <label htmlFor="year">Ano</label>
+              <label htmlFor="year">Año</label>
               <input id="year" name="year" value={form.year} onChange={onChange} required />
             </div>
             <div className="field">
@@ -69,6 +79,20 @@ export default function VehicleFormModal({
               ))}
             </select>
           </div>
+
+          <AttachmentField
+            id="vehicle_photo"
+            label="Foto del vehiculo"
+            preview
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            hint="JPG, PNG o WEBP, hasta 10 MB. Se muestra en la vista de tarjetas."
+            file={photo}
+            pendingFile={pendingPhoto}
+            isUploading={isUploading}
+            onFileChange={onPhotoChange}
+            onRemoveFile={onRemovePhoto}
+            onClearPendingFile={onClearPendingPhoto}
+          />
 
           <div className="actions-row">
             <Button type="submit">{isEditing ? "Guardar cambios" : "Guardar vehiculo"}</Button>

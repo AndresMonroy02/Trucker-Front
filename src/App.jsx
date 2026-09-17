@@ -8,7 +8,7 @@ import LoginPage from "./pages/auth/LoginPage";
 import RequireAuth from "./components/RequireAuth";
 import RegisterPage from "./pages/auth/RegisterPage";
 import SetPasswordPage from "./pages/auth/SetPasswordPage";
-import logo from "./assets/trucker_no_text.png";
+import { BRAND_LOGO, BRAND_NAME } from "./brand";
 import { getDashboardPathByRole } from "./utils/roleRouting";
 
 // Route-level code splitting: the login screen no longer ships every dashboard.
@@ -131,8 +131,8 @@ export default function App() {
         {!isDashboardRoute ? (
           <div className="card-header">
             <div className="auth-brand">
-              <img className="auth-brand-logo" src={logo} alt="Trucker" />
-              <h1>Trucker</h1>
+              <img className="auth-brand-logo" src={BRAND_LOGO} alt={BRAND_NAME} />
+              <h1>{BRAND_NAME}</h1>
               <p className="hint">Accede con tu cuenta y gestiona tu operacion de transporte con una vista clara y centralizada.</p>
             </div>
             <button className="theme-toggle" onClick={toggleTheme} type="button">

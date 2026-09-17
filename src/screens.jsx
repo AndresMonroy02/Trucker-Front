@@ -1,8 +1,10 @@
 import { lazy } from "react";
 
 import {
+  IconBox,
   IconDashboard,
   IconDocument,
+  IconHistory,
   IconMail,
   IconMoney,
   IconProfile,
@@ -11,6 +13,7 @@ import {
   IconTruck,
   IconUser,
   IconWallet,
+  IconWrench,
 } from "./components/icons";
 
 /**
@@ -42,6 +45,9 @@ export const SCREEN_COMPONENTS = {
   vehicles: { Icon: IconTruck, Component: lazy(() => import("./pages/owner/OwnerVehiclesPage")) },
   drivers: { Icon: IconUser, Component: lazy(() => import("./pages/owner/OwnerDriversPage")) },
   documents: { Icon: IconDocument, Component: lazy(() => import("./pages/owner/OwnerDocumentsPage")) },
+  inventories: { Icon: IconBox, Component: lazy(() => import("./pages/owner/OwnerInventoriesPage")) },
+  maintenances: { Icon: IconWrench, Component: lazy(() => import("./pages/owner/OwnerMaintenancesPage")) },
+  reports: { Icon: IconHistory, Component: lazy(() => import("./pages/owner/OwnerReportsPage")) },
   emails: { Icon: IconMail, Component: lazy(() => import("./pages/owner/OwnerEmailLogsPage")) },
   team: { Icon: IconProfile, Component: lazy(() => import("./pages/owner/OwnerTeamPage")) },
 };

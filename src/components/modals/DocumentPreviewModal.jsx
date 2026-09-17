@@ -1,11 +1,6 @@
 import Button from "../Button";
 import ModalBackdrop from "../ModalBackdrop";
-
-function formatFileSize(bytes) {
-  if (!bytes) return "";
-  const mb = bytes / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
-}
+import { formatFileSize } from "../../utils/format";
 
 /**
  * The attached scan, rendered in the page.
@@ -15,7 +10,15 @@ function formatFileSize(bytes) {
  * saves. That distinction has to come from the server -- the `download` attribute
  * on an anchor is ignored cross-origin, and the bucket is a different origin.
  */
-export default function DocumentPreviewModal({ isOpen, document, file, onClose }) {
+export default function DocumentPreviewModal({
+  isOpen,
+  document,
+  file,
+  onClose,
+  // What the header says under the filename. Documents describe themselves by
+  // type and holder; an inventory or a maintenance passes its own line.
+  subtitle,
+}) {
   if (!isOpen || !file) return null;
 
   const isPdf = file.content_type === "application/pdf";
@@ -34,8 +37,13 @@ export default function DocumentPreviewModal({ isOpen, document, file, onClose }
           <div>
             <h3>{file.name}</h3>
             <p className="hint">
-              {document?.document_type?.label}
-              {document?.holder_label ? ` - ${document.holder_label}` : ""} ·{" "}
+              {subtitle ?? (
+                <>
+                  {document?.document_type?.label}
+                  {document?.holder_label ? ` - ${document.holder_label}` : ""}
+                </>
+              )}
+              {" · "}
               {formatFileSize(file.size)}
             </p>
           </div>

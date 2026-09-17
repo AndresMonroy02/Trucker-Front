@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { api, getErrorMessage } from "../../api";
@@ -19,6 +20,19 @@ const INITIAL_FORM = {
 
 const PAGE_SIZE = 8;
 
+// Which layout the fleet is shown in, remembered per browser the way the sidebar
+// remembers whether it is collapsed.
+const VIEW_STORAGE_KEY = "ownerVehiclesView";
+
+function readStoredView() {
+  try {
+    return localStorage.getItem(VIEW_STORAGE_KEY) === "cards" ? "cards" : "table";
+  } catch {
+    // Private mode, or storage disabled. The table is the safe default.
+    return "table";
+  }
+}
+
 export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggleTheme }) {
   const [vehicles, setVehicles] = useState([]);
   const [totalVehicles, setTotalVehicles] = useState(0);
@@ -30,6 +44,14 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("active");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [view, setView] = useState(readStoredView);
+  // The photo already on the row being edited, and one chosen before a new
+  // vehicle exists.
+  const [editingPhoto, setEditingPhoto] = useState(null);
+  const [pendingPhoto, setPendingPhoto] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const navigate = useNavigate();
 
   const totalPages = Math.max(1, Math.ceil(totalVehicles / PAGE_SIZE));
   const paginatedVehicles = useMemo(() => vehicles, [vehicles]);
@@ -78,6 +100,19 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
     }
   }
 
+  function changeView(next) {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // Not being able to remember the choice is not worth failing over.
+    }
+  }
+
+  function goToLog(screen, vehicleId) {
+    navigate(`/dashboard/owner/${screen}?vehicle_id=${vehicleId}`);
+  }
+
   function handlePageChange(nextPage) {
     const safePage = Math.min(Math.max(nextPage, 1), totalPages);
     setCurrentPage(safePage);
@@ -86,6 +121,8 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
   function openModal() {
     setForm(INITIAL_FORM);
     setEditingVehicleId(null);
+    setEditingPhoto(null);
+    setPendingPhoto(null);
     setIsModalOpen(true);
   }
 
@@ -98,12 +135,65 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
       driver_id: vehicle.driver_id ? String(vehicle.driver_id) : "",
     });
     setEditingVehicleId(vehicle.id);
+    setEditingPhoto(vehicle.photo || null);
+    setPendingPhoto(null);
     setIsModalOpen(true);
   }
 
   function closeModal() {
     setIsModalOpen(false);
     setEditingVehicleId(null);
+    setEditingPhoto(null);
+    setPendingPhoto(null);
+  }
+
+  async function uploadPhoto(vehicleId, selected) {
+    const payload = new FormData();
+    payload.append("file", selected);
+    setIsUploading(true);
+    try {
+      const { data } = await api.post(`/owner/vehicles/${vehicleId}/photo`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setEditingPhoto(data);
+      setPendingPhoto(null);
+      return true;
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible subir la foto."));
+      return false;
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handlePhotoChange(event) {
+    const [selected] = event.target.files || [];
+    // Clear the input either way, so re-picking the same file fires onChange again.
+    event.target.value = "";
+    if (!selected) return;
+    // No vehicle yet: hold it and send it the moment one exists.
+    if (!editingVehicleId) {
+      setPendingPhoto(selected);
+      return;
+    }
+    if (await uploadPhoto(editingVehicleId, selected)) {
+      toast.success("Foto actualizada.");
+      // Already persisted, so the card behind the modal is stale from this point
+      // on -- closing with Cancelar must not leave it showing the old picture.
+      await fetchVehicles(currentPage, statusFilter);
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (!editingVehicleId) return;
+    try {
+      await api.delete(`/owner/vehicles/${editingVehicleId}/photo`);
+      setEditingPhoto(null);
+      toast.success("Foto eliminada.");
+      await fetchVehicles(currentPage, statusFilter);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible eliminar la foto."));
+    }
   }
 
   function handleInputChange(event) {
@@ -141,7 +231,19 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
         toast.success("Vehiculo actualizado correctamente.");
         await fetchVehicles(currentPage, statusFilter);
       } else {
-        await api.post("/owner/vehicles", payload);
+        const { data: created } = await api.post("/owner/vehicles", payload);
+        // The vehicle exists either way. If the upload then fails the row is
+        // still there and keeps the staged photo, so the modal stays open for a
+        // retry rather than the file vanishing without a word.
+        if (pendingPhoto) {
+          const uploaded = await uploadPhoto(created.id, pendingPhoto);
+          if (!uploaded) {
+            setEditingVehicleId(created.id);
+            await fetchVehicles(1, statusFilter);
+            toast.error("El vehiculo se guardo, pero la foto no. Intenta subirla de nuevo.");
+            return;
+          }
+        }
         toast.success("Vehiculo creado correctamente.");
         if (currentPage !== 1) {
           setCurrentPage(1);
@@ -202,47 +304,153 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
           <Button type="button" variant="secondary" onClick={clearFilters}>
             Limpiar filtros
           </Button>
+          <div className="view-toggle" role="group" aria-label="Forma de ver la flota">
+            <button
+              type="button"
+              className="table-action-button"
+              aria-pressed={view === "table"}
+              onClick={() => changeView("table")}
+            >
+              Tabla
+            </button>
+            <button
+              type="button"
+              className="table-action-button"
+              aria-pressed={view === "cards"}
+              onClick={() => changeView("cards")}
+            >
+              Tarjetas
+            </button>
+          </div>
         </div>
 
-        <div className="owner-table-wrap">
-          <table className="owner-table">
-            <thead>
-              <tr>
-                <th>Placa</th>
-                <th>Modelo</th>
-                <th>Ano</th>
-                <th>Estado</th>
-                <th>Conductor</th>
-                <th>Creado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedVehicles.length === 0 && (
-                <tr><td colSpan={7} className="hint">No hay vehiculos para los filtros seleccionados.</td></tr>
-              )}
-              {paginatedVehicles.map((vehicle) => (
-                <tr key={vehicle.id}>
-                  <td>{vehicle.plate}</td>
-                  <td>{vehicle.model}</td>
-                  <td>{vehicle.year}</td>
-                  <td>
-                    <span className={`status-badge ${vehicle.status?.code === "active" ? "status-active" : "status-maintenance"}`}>
-                      {vehicle.status?.label || "-"}
-                    </span>
-                  </td>
-                  <td>{vehicle.driver?.name || vehicle.driver_name || "-"}</td>
-                  <td>{formatDateOnly(vehicle.created_at)}</td>
-                  <td>
-                    <button type="button" className="table-action-button" onClick={() => openEditModal(vehicle)}>
-                      Editar
-                    </button>
-                  </td>
+        {view === "cards" ? (
+          <div className="owner-grid owner-grid-cards">
+            {paginatedVehicles.length === 0 && (
+              <p className="hint">No hay vehiculos para los filtros seleccionados.</p>
+            )}
+            {paginatedVehicles.map((vehicle) => (
+              <article className="owner-card vehicle-card" key={vehicle.id}>
+                {vehicle.photo?.url ? (
+                  // The signed URL straight off the list. It cannot be the API
+                  // endpoint: an <img> does not send the Authorization header, so
+                  // that request would come back a 401.
+                  <img
+                    className="vehicle-photo"
+                    src={vehicle.photo.url}
+                    alt={`Foto de ${vehicle.plate}`}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="vehicle-photo vehicle-photo-empty">
+                    <span className="hint">Sin foto</span>
+                  </div>
+                )}
+
+                <div className="owner-list-header">
+                  <div>
+                    <h4>{vehicle.plate}</h4>
+                    <p className="hint">
+                      {vehicle.model} · {vehicle.year}
+                    </p>
+                  </div>
+                  <span
+                    className={`status-badge ${
+                      vehicle.status?.code === "active" ? "status-active" : "status-maintenance"
+                    }`}
+                  >
+                    {vehicle.status?.label || "-"}
+                  </span>
+                </div>
+
+                <p className="hint">
+                  Conductor: {vehicle.driver?.name || vehicle.driver_name || "sin asignar"}
+                </p>
+
+                <div className="owner-row-actions">
+                  <button
+                    type="button"
+                    className="table-action-button"
+                    onClick={() => openEditModal(vehicle)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="table-action-button"
+                    onClick={() => goToLog("inventories", vehicle.id)}
+                  >
+                    Inventarios
+                  </button>
+                  <button
+                    type="button"
+                    className="table-action-button"
+                    onClick={() => goToLog("maintenances", vehicle.id)}
+                  >
+                    Mantenimientos
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="owner-table-wrap">
+            <table className="owner-table">
+              <thead>
+                <tr>
+                  <th>Placa</th>
+                  <th>Modelo</th>
+                  <th>Año</th>
+                  <th>Estado</th>
+                  <th>Conductor</th>
+                  <th>Creado</th>
+                  <th>Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {paginatedVehicles.length === 0 && (
+                  <tr><td colSpan={7} className="hint">No hay vehiculos para los filtros seleccionados.</td></tr>
+                )}
+                {paginatedVehicles.map((vehicle) => (
+                  <tr key={vehicle.id}>
+                    <td>{vehicle.plate}</td>
+                    <td>{vehicle.model}</td>
+                    <td>{vehicle.year}</td>
+                    <td>
+                      <span className={`status-badge ${vehicle.status?.code === "active" ? "status-active" : "status-maintenance"}`}>
+                        {vehicle.status?.label || "-"}
+                      </span>
+                    </td>
+                    <td>{vehicle.driver?.name || vehicle.driver_name || "-"}</td>
+                    <td>{formatDateOnly(vehicle.created_at)}</td>
+                    <td>
+                      <div className="owner-row-actions">
+                        <button type="button" className="table-action-button" onClick={() => openEditModal(vehicle)}>
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="table-action-button"
+                          onClick={() => goToLog("inventories", vehicle.id)}
+                        >
+                          Inventarios
+                        </button>
+                        <button
+                          type="button"
+                          className="table-action-button"
+                          onClick={() => goToLog("maintenances", vehicle.id)}
+                        >
+                          Mantenimientos
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+        )}
 
         <TablePagination
           page={currentPage}
@@ -263,6 +471,12 @@ export default function OwnerVehiclesPage({ token, me, onLogout, theme, onToggle
         onClose={closeModal}
         isEditing={Boolean(editingVehicleId)}
         onDelete={editingVehicleId ? () => requestDelete(editingVehicleId) : undefined}
+        photo={editingPhoto}
+        pendingPhoto={pendingPhoto}
+        isUploading={isUploading}
+        onPhotoChange={handlePhotoChange}
+        onRemovePhoto={editingPhoto ? handleRemovePhoto : undefined}
+        onClearPendingPhoto={() => setPendingPhoto(null)}
       />
 
       <ConfirmModal

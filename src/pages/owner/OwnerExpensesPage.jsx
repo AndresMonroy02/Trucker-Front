@@ -271,6 +271,10 @@ export default function OwnerExpensesPage({ token, me, onLogout, theme, onToggle
               manifiesto (llantas, mantenimiento) se reporta aparte y no afecta el
               margen de ningun viaje.
             </p>
+            <p className="hint">
+              Un gasto de viaje con tipo Mantenimiento tambien queda registrado en la
+              hoja de mantenimientos del vehiculo del manifiesto.
+            </p>
           </div>
           <IfCanEdit screen="expenses">
             <Button onClick={openCreateExpense}>Registrar gasto</Button>
