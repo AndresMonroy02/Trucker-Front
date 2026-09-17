@@ -173,9 +173,14 @@ export default function OwnerTeamPage({ token, me, onLogout, theme, onToggleThem
                 return (
                   <tr key={member.id}>
                     <td>
-                      {member.username}
+                      {/* El nombre si lo pusieron, el usuario si no. Una lista de
+                          personas donde dice "conductor_uno" no le sirve a nadie. */}
+                      {member.full_name || member.username}
                       {member.is_self ? (
                         <span className="status-badge status-badge-inline status-active">Tu</span>
+                      ) : null}
+                      {member.full_name ? (
+                        <small className="hint"> {member.username}</small>
                       ) : null}
                     </td>
                     <td>{member.email}</td>

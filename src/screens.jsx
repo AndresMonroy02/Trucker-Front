@@ -7,9 +7,9 @@ import {
   IconHistory,
   IconMail,
   IconMoney,
-  IconProfile,
   IconRoute,
   IconSupplier,
+  IconTeam,
   IconTruck,
   IconUser,
   IconWallet,
@@ -49,7 +49,7 @@ export const SCREEN_COMPONENTS = {
   maintenances: { Icon: IconWrench, Component: lazy(() => import("./pages/owner/OwnerMaintenancesPage")) },
   reports: { Icon: IconHistory, Component: lazy(() => import("./pages/owner/OwnerReportsPage")) },
   emails: { Icon: IconMail, Component: lazy(() => import("./pages/owner/OwnerEmailLogsPage")) },
-  team: { Icon: IconProfile, Component: lazy(() => import("./pages/owner/OwnerTeamPage")) },
+  team: { Icon: IconTeam, Component: lazy(() => import("./pages/owner/OwnerTeamPage")) },
 };
 
 export function screenComponent(key) {

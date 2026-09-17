@@ -9,6 +9,7 @@ import DashboardShell from "../../components/DashboardShell";
 import ManifestAdvancesPanel from "../../components/manifest/ManifestAdvancesPanel";
 import ManifestAuditPanel from "../../components/manifest/ManifestAuditPanel";
 import ManifestPaymentsPanel from "../../components/manifest/ManifestPaymentsPanel";
+import RouteMap from "../../components/manifest/RouteMap";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import TablePagination from "../../components/TablePagination";
 import { formatDate, formatMoney, formatPercent } from "../../utils/format";
@@ -332,6 +333,23 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                 <p>{manifestDetail.origin} - {manifestDetail.destination}</p>
               </div>
               <div>
+                <p className="profile-label">Distancia</p>
+                {/* Sin distancia se muestra "-", nunca 0. Y se dice de donde
+                    salio: una cifra escrita a mano y una calculada no son la
+                    misma clase de dato. */}
+                <p>
+                  {manifestDetail.distance_km
+                    ? `${Number(manifestDetail.distance_km).toLocaleString("es-CO")} km`
+                    : "-"}
+                  {manifestDetail.distance_source ? (
+                    <small className="hint">
+                      {" "}
+                      ({manifestDetail.distance_source === "manual" ? "ingresada" : "calculada"})
+                    </small>
+                  ) : null}
+                </p>
+              </div>
+              <div>
                 <p className="profile-label">Fecha salida</p>
                 <p>{formatDate(manifestDetail.departure_date)}</p>
               </div>
@@ -356,6 +374,8 @@ export default function OwnerManifestDetailPage({ token, me, onLogout, theme, on
                 <p>{manifestDetail.cargo_description || "-"}</p>
               </div>
             </div>
+
+            <RouteMap manifest={manifestDetail} basePath="/owner" />
           </section>
 
           <section className="manifest-detail-split">

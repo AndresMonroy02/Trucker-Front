@@ -106,6 +106,15 @@ export default function App() {
     }
   }
 
+  /* El perfil es lo unico que puede cambiar la identidad de la sesion en marcha.
+     Cambiar el usuario invalida el token -- su "sub" es el usuario -- asi que el
+     backend devuelve uno nuevo y aqui se reemplaza antes de que salga la
+     siguiente peticion. Sin token nuevo solo se refresca `me`. */
+  function handleProfileSaved(user, nextToken) {
+    setMe(user);
+    if (nextToken) setToken(nextToken);
+  }
+
   function handleLogin(tokenValue) {
     setToken(tokenValue);
     setLoginForm(EMPTY_LOGIN);
@@ -287,6 +296,7 @@ export default function App() {
                   theme={theme}
                   onToggleTheme={toggleTheme}
                   onLogout={logout}
+                  onProfileSaved={handleProfileSaved}
                 />
               </RequireAuth>
             }

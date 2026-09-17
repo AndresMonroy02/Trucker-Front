@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { api, getErrorMessage } from "../../api";
 import Button from "../../components/Button";
 import DashboardShell from "../../components/DashboardShell";
+import RouteMap from "../../components/manifest/RouteMap";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import TablePagination from "../../components/TablePagination";
 import { formatDate, formatMoney } from "../../utils/format";
@@ -269,6 +270,23 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
                 <p>{manifestDetail.origin} - {manifestDetail.destination}</p>
               </div>
               <div>
+                <p className="profile-label">Distancia</p>
+                {/* Sin distancia se muestra "-", nunca 0, y se dice de donde
+                    salio: una cifra escrita a mano y una calculada no son la
+                    misma clase de dato. Igual que en el detalle del dueno. */}
+                <p>
+                  {manifestDetail.distance_km
+                    ? `${Number(manifestDetail.distance_km).toLocaleString("es-CO")} km`
+                    : "-"}
+                  {manifestDetail.distance_source ? (
+                    <small className="hint">
+                      {" "}
+                      ({manifestDetail.distance_source === "manual" ? "ingresada" : "calculada"})
+                    </small>
+                  ) : null}
+                </p>
+              </div>
+              <div>
                 <p className="profile-label">Fecha salida</p>
                 <p>{formatDate(manifestDetail.departure_date)}</p>
               </div>
@@ -285,6 +303,8 @@ export default function DriverManifestDetailPage({ token, me, onLogout, theme, o
                 <p>{manifestDetail.cargo_description || "-"}</p>
               </div>
             </div>
+
+            <RouteMap manifest={manifestDetail} basePath="/driver" />
 
             {!canAddExpense ? (
               <p className="hint">Solo puedes agregar gastos cuando el manifiesto esta en transito.</p>

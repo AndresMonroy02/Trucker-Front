@@ -23,6 +23,13 @@ const EMPTY_MANIFEST_FORM = {
   vehicle_id: "",
   driver_id: "",
   status_id: "",
+  // These four travel with the rest because the PUT sends the whole object. Leave
+  // one out and editing a trip blanks that column -- the update splats every key
+  // it receives straight onto the row.
+  origin_place_id: null,
+  destination_place_id: null,
+  distance_km: "",
+  distance_source: null,
 };
 
 const EMPTY_MANIFEST_FILTERS = {
@@ -81,6 +88,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef(null);
   const [manifestForm, setManifestForm] = useState(EMPTY_MANIFEST_FORM);
+  const [previewKm, setPreviewKm] = useState(null);
   const [editingManifestId, setEditingManifestId] = useState(null);
   const [manifestFilters, setManifestFilters] = useState(EMPTY_MANIFEST_FILTERS);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM);
@@ -276,6 +284,10 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       vehicle_id: manifest.vehicle_id || "",
       driver_id: manifest.driver_id || "",
       status_id: manifest.status_id,
+      origin_place_id: manifest.origin_place_id ?? null,
+      destination_place_id: manifest.destination_place_id ?? null,
+      distance_km: manifest.distance_km ?? "",
+      distance_source: manifest.distance_source ?? null,
     });
     setEditingManifestId(manifest.id);
     setManifestModalOpen(true);
@@ -298,6 +310,38 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     setExpenseModalOpen(false);
     setExpenseManifestLocked(false);
   }
+
+  /** For the place picker, which sets values no <input> event carries. */
+  function handleManifestField(name, value) {
+    setManifestForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  // The distance, shown as soon as both endpoints are pinned and before anything
+  // is saved. Kept OUT of the form: writing it into distance_km would make the
+  // server record a figure Google produced as one a person typed.
+  useEffect(() => {
+    const origin = manifestForm.origin_place_id;
+    const destination = manifestForm.destination_place_id;
+    if (!manifestModalOpen || !origin || !destination || origin === destination) {
+      setPreviewKm(null);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get("/owner/manifests/distance-preview", {
+          params: { origin_place_id: origin, destination_place_id: destination },
+        });
+        if (!cancelled) setPreviewKm(data.distance_km ?? null);
+      } catch {
+        // A preview nobody gets is not worth a message; the trip saves anyway.
+        if (!cancelled) setPreviewKm(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [manifestModalOpen, manifestForm.origin_place_id, manifestForm.destination_place_id]);
 
   function handleManifestInput(event) {
     const { name, value, type, checked } = event.target;
@@ -401,6 +445,11 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       vehicle_id: manifestForm.vehicle_id ? Number(manifestForm.vehicle_id) : null,
       driver_id: manifestForm.driver_id ? Number(manifestForm.driver_id) : null,
       status_id: manifestForm.status_id ? Number(manifestForm.status_id) : null,
+      // An empty box means "work it out", not zero. The server resolves the
+      // final value either way and ignores whatever source we send.
+      distance_km: manifestForm.distance_km === "" || manifestForm.distance_km === null
+        ? null
+        : Number(manifestForm.distance_km),
     };
 
     try {
@@ -602,6 +651,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
               <tr>
                 <th>Manifiesto</th>
                 <th>Ruta</th>
+                <th>Km</th>
                 <th>Vehiculo</th>
                 <th>Salida</th>
                 <th>Estado</th>
@@ -619,6 +669,14 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
                 <tr key={manifest.id}>
                   <td>{manifest.manifest_number}</td>
                   <td>{manifest.origin} - {manifest.destination}</td>
+                  {/* Un viaje sin distancia muestra "-", nunca 0: cero kilometros
+                      es una afirmacion falsa. Mismo criterio que margin_pct
+                      cuando no hay flete. */}
+                  <td>
+                    {manifest.distance_km
+                      ? `${Number(manifest.distance_km).toLocaleString("es-CO")} km`
+                      : "-"}
+                  </td>
                   <td>{manifest.vehicle_plate || "-"}</td>
                   <td>{formatDate(manifest.departure_date)}</td>
                   <td>
@@ -677,6 +735,8 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       <ManifestFormModal
         isOpen={manifestModalOpen}
         form={manifestForm}
+        onFieldChange={handleManifestField}
+        previewKm={previewKm}
         vehicles={vehicles}
         drivers={drivers}
         manifestStatuses={manifestStatuses}

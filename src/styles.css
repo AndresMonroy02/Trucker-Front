@@ -329,7 +329,7 @@ button:focus-visible,
   position: sticky;
   top: 0;
   /* above .dashboard-content, whose backdrop-filter makes its own stacking
-     context - without this the collapsed tooltips paint behind the page. */
+     context - without this the rail paints behind the page. */
   z-index: 20;
   align-self: start;
   height: calc(100dvh - 28px);
@@ -344,7 +344,8 @@ button:focus-visible,
   border: 1px solid var(--c-sidebar-border);
   border-radius: 16px;
   box-shadow: 0 26px 48px rgba(5, 14, 32, 0.38);
-  /* visible, not hidden: the collapsed tooltips have to escape the rail */
+  /* El que se desplaza es .sidebar-nav, no esto: el pie tiene que quedar
+     clavado abajo mientras la lista de enlaces corre por dentro. */
   overflow: visible;
   transition: transform 0.24s ease, opacity 0.2s ease;
 }
@@ -497,12 +498,28 @@ button:focus-visible,
   margin-right: -4px;
 }
 
-/* Collapsed the rail is short enough not to scroll, so drop the clipping that
-   would otherwise swallow the tooltips. */
+/* El rail contraido usa el mismo overflow-y: auto de arriba, a proposito.
+ *
+ * Aqui habia un `overflow: visible` para que los tooltips del rail no quedaran
+ * recortados, con el argumento de que contraido era "demasiado corto para
+ * desplazarse". Dejo de ser cierto cuando el menu se agrupo: un propietario ve
+ * 14 enlaces en 6 grupos, que con 42 px por enlace son 758 px de nav y 996 px de
+ * rail completo. No cabe en ningun portatil -- se pasa 124 px en una pantalla de
+ * 900 y 224 px en una de 800 -- y sin desplazamiento el contenido se derramaba
+ * por encima del pie y fuera de la pantalla: los ultimos enlaces quedaban
+ * inalcanzables.
+ *
+ * No devolver `overflow: visible` aqui. Un contenedor que se desplaza recorta a
+ * sus hijos y no hay forma en CSS de que un tooltip escape de el, asi que el
+ * tooltip contraido es el `title` nativo del enlace. */
+
+/* Lo unico que si cambia contraido: la barra se dibuja sobre el relleno del
+   rail en vez de robarle ancho a los iconos. Con los 4 px de arriba, una barra
+   de 10 px se comeria 6 px de un carril de 52, y los iconos quedarian
+   descentrados respecto al logo. */
 .dashboard-shell-collapsed .sidebar-nav {
-  overflow: visible;
-  padding-right: 0;
-  margin-right: 0;
+  padding-right: 10px;
+  margin-right: -10px;
 }
 
 .sidebar-nav::-webkit-scrollbar,
@@ -557,9 +574,62 @@ button:focus-visible,
   background: color-mix(in srgb, var(--c-sidebar-border) 60%, transparent);
 }
 
+/* The group heading, when the group is worth folding. It carries the same type
+   as .sidebar-group-title inside it, so a folded and an unfolded section read
+   the same. */
+.sidebar-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+
+.sidebar-group-toggle:hover {
+  /* the same mix .sidebar-link:hover uses, so the heading and its items react
+     alike */
+  background: color-mix(in srgb, var(--c-sidebar-bg) 60%, white);
+}
+
+.sidebar-group-toggle:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+.sidebar-group-chevron {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--c-sidebar-text-muted);
+  transition: transform 0.15s ease;
+}
+
+.sidebar-group-chevron.is-closed {
+  transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-group-chevron {
+    transition: none;
+  }
+}
+
 .sidebar-group-items {
   display: grid;
   gap: 4px;
+}
+
+/* [hidden] loses to `display: grid` on specificity, and a folded group that
+   still takes up space is not folded. */
+.sidebar-group-items[hidden] {
+  display: none;
 }
 
 /* ---------- links (nav items, theme toggle and logout share this) ---------- */
@@ -649,35 +719,6 @@ button:focus-visible,
 
 .dashboard-shell-collapsed .sidebar-link-active {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-primary) 45%, transparent);
-}
-
-.dashboard-shell-collapsed .sidebar-link[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-4px);
-  z-index: 70;
-  white-space: nowrap;
-  padding: 7px 11px;
-  border-radius: 9px;
-  border: 1px solid color-mix(in srgb, var(--c-primary) 34%, var(--c-sidebar-border));
-  background: color-mix(in srgb, var(--c-sidebar-bg-deep) 92%, black);
-  color: #eef7ff;
-  font-size: 0.8rem;
-  font-weight: 600;
-  box-shadow: 0 12px 26px rgba(6, 12, 24, 0.4);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
-}
-
-.dashboard-shell-collapsed .sidebar-link:hover::after,
-.dashboard-shell-collapsed .sidebar-link:focus-visible::after {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(-50%) translateX(0);
 }
 
 /* ---------- mobile drawer ---------- */
@@ -814,6 +855,19 @@ button:focus-visible,
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.profile-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+/* El correo, la contrasena y la fila de botones ocupan el ancho: un correo
+   partido a la mitad de la tarjeta se lee peor que uno entero. */
+.profile-form-full {
+  grid-column: span 2;
 }
 
 .profile-grid > div {
@@ -1078,6 +1132,43 @@ button:focus-visible,
 
 .manifest-info-full {
   grid-column: span 2;
+}
+
+/* El mapa de la ruta. La imagen llega de Maps Static a 1280px de ancho y se
+   escala al contenedor, asi que en pantallas chicas se ve nitida en vez de
+   pixelada. */
+.route-map {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 6px;
+}
+
+.route-map img,
+.route-map-placeholder {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+}
+
+.route-map img {
+  height: auto;
+}
+
+/* Del alto aproximado que tendra la imagen (640x320 de proporcion), para que la
+   tarjeta no de un salto cuando el mapa termina de llegar. */
+.route-map-placeholder {
+  aspect-ratio: 2 / 1;
+  background: color-mix(in srgb, var(--c-surface) 92%, white);
+}
+
+.route-map figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
 }
 
 .manifest-detail-split {
@@ -1797,6 +1888,7 @@ button:focus-visible,
   }
 
   .profile-grid,
+  .profile-form,
   .owner-grid,
   .owner-finance-grid,
   .owner-inline-fields {
@@ -1948,6 +2040,78 @@ button:focus-visible,
 .view-toggle .table-action-button[aria-pressed="true"] {
   background: var(--c-primary);
   color: var(--c-surface);
+}
+
+/* The place field: a text input that can also carry a pin. The list floats, so
+   the two endpoint fields keep their side-by-side row instead of shoving the
+   rest of the form down while somebody is typing. */
+.place-field {
+  position: relative;
+}
+
+.place-suggestions {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 2px 0 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+
+/* The two sources are labelled, because "Cartagena" from your own book and
+   "Cartagena" from Google are not the same row and picking the wrong one splits
+   a corridor in two. */
+.place-group {
+  padding: 6px 8px 2px;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--c-text-muted);
+}
+
+.place-suggestions button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.place-suggestions button:hover {
+  background: var(--c-surface-soft);
+}
+
+.place-suggestions small {
+  color: var(--c-text-muted);
+  font-size: 0.78rem;
+}
+
+.place-pinned {
+  font-size: 0.72rem;
+  color: var(--c-text-muted);
+}
+
+.place-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 /* The report's own switches, above the list: what goes in the document, as

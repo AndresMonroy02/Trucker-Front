@@ -10,7 +10,9 @@ import { api } from "./api";
  * is what makes adding a screen a one-line change on each side instead of an
  * edit in six places.
  */
-const AccessContext = createContext(null);
+// Exported so a test can render a screen with a known set of permissions instead
+// of waiting on GET /me/access, which no server render ever performs.
+export const AccessContext = createContext(null);
 
 const EMPTY = { screens: [], permissions: [], role: null, roleLabel: null, loading: true };
 
