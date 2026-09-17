@@ -1,12 +1,15 @@
 import Button from "../Button";
 import MoneyInput from "../MoneyInput";
 import ModalBackdrop from "../ModalBackdrop";
+import PlaceAutocomplete from "../PlaceAutocomplete";
 
 // Mirrors SUPPORTED_CURRENCIES in the backend config. The app records the currency
 // of every amount; it does not convert between them.
 const CURRENCIES = ["COP", "USD", "VES", "PEN", "BRL"];
 
 export default function ManifestFormModal({
+  onFieldChange,
+  previewKm = null,
   isOpen,
   form,
   vehicles,
@@ -42,14 +45,56 @@ export default function ManifestFormModal({
           </div>
 
           <div className="owner-inline-fields">
-            <div className="field">
-              <label htmlFor="origin">Origen</label>
-              <input id="origin" name="origin" value={form.origin} onChange={onChange} required />
-            </div>
-            <div className="field">
-              <label htmlFor="destination">Destino</label>
-              <input id="destination" name="destination" value={form.destination} onChange={onChange} required />
-            </div>
+            <PlaceAutocomplete
+              id="origin"
+              label="Origen"
+              required
+              value={form.origin}
+              placeId={form.origin_place_id}
+              onTextChange={(text) => onFieldChange("origin", text)}
+              onPlaceChange={(placeId) => onFieldChange("origin_place_id", placeId)}
+            />
+            <PlaceAutocomplete
+              id="destination"
+              label="Destino"
+              required
+              value={form.destination}
+              placeId={form.destination_place_id}
+              onTextChange={(text) => onFieldChange("destination", text)}
+              onPlaceChange={(placeId) => onFieldChange("destination_place_id", placeId)}
+            />
+          </div>
+
+          {/* Directly under the two endpoints, on purpose. A distance typed by
+              hand is never overwritten, so when somebody changes the destination
+              the stale figure has to be in the same glance. */}
+          <div className="field">
+            <label htmlFor="distance_km">Distancia (km)</label>
+            <input
+              id="distance_km"
+              name="distance_km"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.distance_km ?? ""}
+              onChange={onChange}
+              placeholder="Se calcula sola si ambos lugares tienen ubicacion"
+            />
+            {/* Texto, nunca dentro del input. Escribirla ahi la marcaria como
+                puesta a mano, y un numero que calculo Google quedaria registrado
+                como escrito por una persona. */}
+            {previewKm !== null ? (
+              <p className="hint">
+                <strong>Distancia estimada: {previewKm} km</strong> — se guarda sola.
+                Escribe un numero solo si conoces el recorrido real.
+              </p>
+            ) : (
+              <p className="hint">
+                {form.distance_source === "provider"
+                  ? "Calculada desde el mapa. Si la escribes, se respeta lo que escribas."
+                  : "Opcional. Se calcula sola al elegir los dos lugares."}
+              </p>
+            )}
           </div>
 
           <div className="owner-inline-fields">

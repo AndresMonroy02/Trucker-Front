@@ -5,6 +5,7 @@ import { BRAND_LOGO, BRAND_NAME } from "../brand";
 import { useAccess } from "../access";
 import { SCREEN_COMPONENTS } from "../screens";
 import {
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
   IconClose,
@@ -34,12 +35,36 @@ const EXACT_DASHBOARD_ROUTES = new Set([
   "/dashboard/general",
 ]);
 
+function slug(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 function navLinkClass({ isActive }) {
   return `sidebar-link ${isActive ? "sidebar-link-active" : ""}`;
 }
 
 function getSidebarStorageKey(role) {
   return `dashboardSidebarCollapsed:${role || "user"}`;
+}
+
+function getGroupsStorageKey(role) {
+  return `dashboardSidebarGroups:${role || "user"}`;
+}
+
+/**
+ * Which groups the person has folded away.
+ *
+ * The *closed* ones are stored, not the open ones, so a group added to the
+ * backend registry later shows up open -- nobody has to discover that a new
+ * screen exists behind a heading they never opened.
+ */
+function readClosedGroups(role) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(getGroupsStorageKey(role)) || "[]");
+    return new Set(Array.isArray(stored) ? stored : []);
+  } catch {
+    return new Set();
+  }
 }
 
 function getRoleLabel(role) {
@@ -131,6 +156,7 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
   const location = useLocation();
   const roleLabel = getRoleLabel(me?.role);
   const sidebarStorageKey = getSidebarStorageKey(me?.role);
+  const groupsStorageKey = getGroupsStorageKey(me?.role);
 
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -145,6 +171,17 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
     }
   });
 
+  const [closedGroups, setClosedGroups] = useState(() => readClosedGroups(me?.role));
+
+  function toggleGroup(title) {
+    setClosedGroups((previous) => {
+      const next = new Set(previous);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
+  }
+
   const access = useAccess();
   const sidebarGroups = getSidebarGroups(me?.role, access.screens);
   const isSidebarCollapsed = !isMobile && isCollapsed;
@@ -157,6 +194,30 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
       // private mode or blocked storage: the preference just does not persist
     }
   }, [isCollapsed, sidebarStorageKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(groupsStorageKey, JSON.stringify([...closedGroups]));
+    } catch {
+      // same: the preference just does not persist
+    }
+  }, [closedGroups, groupsStorageKey]);
+
+  // Landing on a screen inside a folded group unfolds it. Reacting to the
+  // navigation rather than forcing it open on every render: the fold is the
+  // person's choice, and it survives until they go somewhere that contradicts it.
+  useEffect(() => {
+    const owning = sidebarGroups.find((group) =>
+      group.items.some((item) => location.pathname === item.to)
+    );
+    if (!owning) return;
+    setClosedGroups((previous) => {
+      if (!previous.has(owning.title)) return previous;
+      const next = new Set(previous);
+      next.delete(owning.title);
+      return next;
+    });
+  }, [location.pathname, sidebarGroups]);
 
   useEffect(() => {
     try {
@@ -264,27 +325,59 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
         ) : null}
 
         <nav className="sidebar-nav" aria-label="Navegacion de dashboard">
-          {sidebarGroups.map((group) => (
-            <div className="sidebar-group" key={group.title}>
-              <p className="sidebar-group-title">{group.title}</p>
-              <div className="sidebar-group-items">
-                {group.items.map(({ to, label, Icon }) => (
-                  <NavLink
-                    key={to}
-                    className={navLinkClass}
-                    to={to}
-                    end={EXACT_DASHBOARD_ROUTES.has(to)}
-                    title={isSidebarCollapsed ? label : undefined}
-                    data-tooltip={label}
-                    onClick={handleSidebarItemClick}
-                  >
-                    <Icon className="sidebar-glyph" />
-                    <span className="sidebar-link-label">{label}</span>
-                  </NavLink>
-                ))}
+          {sidebarGroups.map((group) => {
+            const links = group.items.map(({ to, label, Icon }) => (
+              <NavLink
+                key={to}
+                className={navLinkClass}
+                to={to}
+                end={EXACT_DASHBOARD_ROUTES.has(to)}
+                title={isSidebarCollapsed ? label : undefined}
+                onClick={handleSidebarItemClick}
+              >
+                <Icon className="sidebar-glyph" />
+                <span className="sidebar-link-label">{label}</span>
+              </NavLink>
+            ));
+
+            // A heading you can fold away needs something worth folding. One item
+            // renders as the link itself -- "Resumen > Panel principal" is two
+            // rows to reach one screen.
+            //
+            // The narrow sidebar is icons only, where a heading has no room and a
+            // folded group would hide items with nothing to say why.
+            if (group.items.length < 2 || isSidebarCollapsed) {
+              return (
+                <div className="sidebar-group" key={group.title}>
+                  {isSidebarCollapsed ? <p className="sidebar-group-title">{group.title}</p> : null}
+                  <div className="sidebar-group-items">{links}</div>
+                </div>
+              );
+            }
+
+            const isOpen = !closedGroups.has(group.title);
+            const regionId = `sidebar-group-${slug(group.title)}`;
+
+            return (
+              <div className="sidebar-group" key={group.title}>
+                <button
+                  type="button"
+                  className="sidebar-group-toggle"
+                  aria-expanded={isOpen}
+                  aria-controls={regionId}
+                  onClick={() => toggleGroup(group.title)}
+                >
+                  <span className="sidebar-group-title">{group.title}</span>
+                  <IconChevronDown
+                    className={`sidebar-group-chevron ${isOpen ? "" : "is-closed"}`}
+                  />
+                </button>
+                <div className="sidebar-group-items" id={regionId} hidden={!isOpen}>
+                  {links}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">
@@ -293,7 +386,6 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
             type="button"
             onClick={onToggleTheme}
             title={isSidebarCollapsed ? `Tema ${isDark ? "claro" : "oscuro"}` : undefined}
-            data-tooltip={`Tema ${isDark ? "claro" : "oscuro"}`}
             aria-label={`Cambiar a tema ${isDark ? "claro" : "oscuro"}`}
           >
             {isDark ? <IconSun className="sidebar-glyph" /> : <IconMoon className="sidebar-glyph" />}
@@ -305,7 +397,6 @@ export default function DashboardShell({ me, title, subtitle, onLogout, theme, o
             type="button"
             onClick={onLogout}
             title={isSidebarCollapsed ? "Cerrar sesion" : undefined}
-            data-tooltip="Cerrar sesion"
             aria-label="Cerrar sesion"
           >
             <IconLogout className="sidebar-glyph" />

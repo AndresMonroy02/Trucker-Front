@@ -148,6 +148,20 @@ export function IconProfile(props) {
   );
 }
 
+export function IconTeam(props) {
+  return (
+    <Svg {...props}>
+      {/* Dos personas, no una. Equipo compartia IconProfile con "Mi perfil", asi
+          que en el rail contraido -- donde solo hay iconos -- las dos entradas de
+          Cuenta eran el mismo dibujo y no habia forma de distinguirlas. */}
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3 19a6 6 0 0 1 12 0" />
+      <path d="M16 5.6a3.2 3.2 0 0 1 0 6.1" />
+      <path d="M17.5 14.2A6 6 0 0 1 21 19" />
+    </Svg>
+  );
+}
+
 export function IconShield(props) {
   return (
     <Svg {...props}>
@@ -195,6 +209,14 @@ export function IconChevronRight(props) {
   return (
     <Svg {...props}>
       <path d="m9.5 6 6 6-6 6" />
+    </Svg>
+  );
+}
+
+export function IconChevronDown(props) {
+  return (
+    <Svg {...props}>
+      <path d="m6 9.5 6 6 6-6" />
     </Svg>
   );
 }

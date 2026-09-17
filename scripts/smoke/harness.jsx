@@ -7,16 +7,21 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 
-import { AccessProvider } from "../../src/access";
+import { AccessContext, AccessProvider } from "../../src/access";
+import DashboardShell from "../../src/components/DashboardShell";
 import AttachmentField from "../../src/components/AttachmentField";
 import InventoryFormModal from "../../src/components/modals/InventoryFormModal";
 import ReportPickerModal from "../../src/components/modals/ReportPickerModal";
+import PlaceAutocomplete from "../../src/components/PlaceAutocomplete";
+import RouteMap from "../../src/components/manifest/RouteMap";
+import ManifestFormModal from "../../src/components/modals/ManifestFormModal";
 import VehiclePapersOption from "../../src/components/VehiclePapersOption";
 import VehicleFormModal from "../../src/components/modals/VehicleFormModal";
 import OwnerInventoriesPage from "../../src/pages/owner/OwnerInventoriesPage";
 import OwnerMaintenancesPage from "../../src/pages/owner/OwnerMaintenancesPage";
 import OwnerReportsPage from "../../src/pages/owner/OwnerReportsPage";
 import OwnerVehiclesPage from "../../src/pages/owner/OwnerVehiclesPage";
+import ProfilePage from "../../src/pages/auth/ProfilePage";
 
 let failures = 0;
 
@@ -134,7 +139,144 @@ check(
   [["report-option-group", false]]
 );
 
+console.log("\nPlaceAutocomplete");
+// It reads its own suggestions in an effect, which a server render does not run,
+// so what this fixes is the resting state: a text input, and a button that has to
+// be pressed. Nothing here may imply a provider call on typing.
+check(
+  "campo de texto; las sugerencias llegan solas al teclear",
+  <PlaceAutocomplete
+    id="origin"
+    label="Origen"
+    value="Bogota"
+    placeId={null}
+    onTextChange={() => {}}
+    onPlaceChange={() => {}}
+  />,
+  [
+    ['value="Bogota"'],
+    // El boton se fue: ahora sugiere mientras se escribe.
+    ["Buscar en el mapa", false],
+    // Las listas se cargan en un efecto, que un render de servidor no corre.
+    ["place-suggestions", false],
+  ]
+);
+
+check(
+  "dice cuando la ubicacion quedo guardada",
+  <PlaceAutocomplete
+    id="destination"
+    label="Destino"
+    value="Medellin"
+    placeId={7}
+    onTextChange={() => {}}
+    onPlaceChange={() => {}}
+  />,
+  [["Ubicacion guardada"]]
+);
+
+console.log("\nRouteMap");
+// La imagen se pide en un efecto, que un render de servidor no corre, asi que
+// esto NO ve el mapa. Lo que si prueba es lo que se decide antes de pedir nada:
+// que con coordenadas se arma el marco y el enlace gratis a Google Maps, y que
+// sin ellas el componente no dibuja -- ni pide -- absolutamente nada.
+const placeBogota = { id: 1, label: "Bogota", lat: "4.710989", lng: "-74.072092", provider_place_id: "ChIJ-bogota" };
+const placeMedellin = { id: 2, label: "Medellin", lat: "6.244203", lng: "-75.581212", provider_place_id: "ChIJ-medellin" };
+
+check(
+  "con coordenadas: marco, leyenda y enlace a Google Maps",
+  <RouteMap
+    manifest={{
+      id: 9, origin: "Bogota", destination: "Medellin",
+      origin_place: placeBogota, destination_place: placeMedellin,
+    }}
+    basePath="/owner"
+  />,
+  [
+    ["route-map"],
+    ["Trazado calculado por Google"],
+    ["google.com/maps/dir"],
+    // Los place_id del proveedor son lo que evita que el enlace abra la otra
+    // Cartagena; si desaparecen, el enlace sigue funcionando y miente.
+    ["origin_place_id=ChIJ-bogota"],
+    ["destination_place_id=ChIJ-medellin"],
+  ]
+);
+
+check(
+  "una finca sin coordenadas no dibuja nada",
+  <RouteMap
+    manifest={{
+      id: 9, origin: "Bogota", destination: "La Esperanza",
+      origin_place: placeBogota,
+      destination_place: { id: 3, label: "La Esperanza", lat: null, lng: null },
+    }}
+    basePath="/owner"
+  />,
+  [["route-map", false]]
+);
+
+check(
+  "un viaje sin lugares tampoco",
+  <RouteMap manifest={{ id: 9, origin: "Bogota", destination: "Medellin" }} basePath="/owner" />,
+  [["route-map", false]]
+);
+
 console.log("\nFormularios");
+check(
+  "manifiesto: los dos lugares y la distancia",
+  <ManifestFormModal
+    isOpen
+    form={{
+      manifest_number: "M-001", origin: "Bogota", destination: "Medellin",
+      departure_date: "2026-03-01", arrival_date: "", cargo_description: "",
+      freight_value: "5000000", currency: "COP", vehicle_id: "", driver_id: "",
+      status_id: "1", origin_place_id: 1, destination_place_id: 2,
+      distance_km: "414.00", distance_source: "provider",
+    }}
+    vehicles={[]}
+    drivers={[]}
+    manifestStatuses={[{ id: 1, label: "Pendiente" }]}
+    onChange={() => {}}
+    onFieldChange={() => {}}
+    onSubmit={() => {}}
+    onClose={() => {}}
+  />,
+  [
+    ["Distancia (km)"],
+    ['value="414.00"'],
+    ["Calculada desde el mapa"],
+    ["Ubicacion guardada"],
+  ]
+);
+
+check(
+  "manifiesto: la distancia estimada se muestra como texto, no en el input",
+  <ManifestFormModal
+    isOpen
+    previewKm="651.00"
+    form={{
+      manifest_number: "M-002", origin: "Cartagena", destination: "Medellin",
+      departure_date: "2026-03-01", arrival_date: "", cargo_description: "",
+      freight_value: "5000000", currency: "COP", vehicle_id: "", driver_id: "",
+      status_id: "1", origin_place_id: 1, destination_place_id: 2,
+      distance_km: "", distance_source: null,
+    }}
+    vehicles={[]}
+    drivers={[]}
+    manifestStatuses={[{ id: 1, label: "Pendiente" }]}
+    onChange={() => {}}
+    onFieldChange={() => {}}
+    onSubmit={() => {}}
+    onClose={() => {}}
+  />,
+  [
+    ["Distancia estimada: 651.00 km"],
+    // La trampa: si el numero acaba dentro del input, el servidor lo marca
+    // "manual" y una cifra de Google queda registrada como escrita a mano.
+    ['value="651.00"', false],
+  ]
+);
 check(
   "inventario: solo imagenes, y se ven",
   <InventoryFormModal
@@ -193,6 +335,135 @@ check(
   [["attachment-thumb"], ["camion.jpg"]]
 );
 
+console.log("\nMenu lateral");
+
+// A stand-in for what GET /me/access returns, in the order the API returns it.
+//
+// **This file does not test the order.** The order is the backend's -- it comes
+// from GROUP_ORDER and is asserted in tests/test_permissions.py against
+// screens_for(). Ordering this array by hand once made a check here look right
+// while the real menu had Cuenta sitting third; an assertion over data written
+// in the same file that asserts on it proves nothing.
+//
+// What this file does test is the rendering: that groups become foldable
+// sections, that a group of one is just the link, that the items are links.
+const ownerScreens = [
+  { key: "dashboard", label: "Panel principal", path: "/dashboard/owner", group: "Resumen", can_write: false },
+  { key: "trips", label: "Manifiestos", path: "/dashboard/owner/routes", group: "Operacion", can_write: true },
+  { key: "expenses", label: "Gastos", path: "/dashboard/owner/expenses", group: "Operacion", can_write: true },
+  { key: "finance", label: "Cartera y anticipos", path: "/dashboard/owner/finance", group: "Dinero", can_write: true },
+  { key: "suppliers", label: "Proveedores", path: "/dashboard/owner/suppliers", group: "Dinero", can_write: true },
+  { key: "vehicles", label: "Vehiculos", path: "/dashboard/owner/vehicles", group: "Flota", can_write: true },
+  { key: "maintenances", label: "Mantenimientos", path: "/dashboard/owner/maintenances", group: "Flota", can_write: true },
+  { key: "reports", label: "Reportes", path: "/dashboard/owner/reports", group: "Registros", can_write: true },
+  { key: "emails", label: "Correos", path: "/dashboard/owner/emails", group: "Registros", can_write: false },
+  { key: "team", label: "Equipo", path: "/dashboard/owner/team", group: "Cuenta", can_write: true },
+];
+
+function withAccess(screens, children) {
+  return (
+    <MemoryRouter>
+      <AccessContext.Provider
+        value={{
+          screens,
+          permissions: [],
+          role: "owner_profile",
+          roleLabel: "Propietario",
+          loading: false,
+          can: () => true,
+          canSee: () => true,
+          canEdit: () => true,
+          reload: () => {},
+        }}
+      >
+        {children}
+      </AccessContext.Provider>
+    </MemoryRouter>
+  );
+}
+
+const shell = withAccess(
+  ownerScreens,
+  <DashboardShell {...{ me: { name: "Ana", role: "owner_profile" }, onLogout: () => {}, theme: "light", onToggleTheme: () => {} }}>
+    <p>contenido</p>
+  </DashboardShell>
+);
+
+check("cada grupo del payload sale como seccion", shell, [
+  ["Operacion"],
+  ["Dinero"],
+  ["Flota"],
+  ["Registros"],
+  ["Cuenta"],
+]);
+
+check("cada grupo con dos o mas se puede plegar, y abre abierto", shell, [
+  ['aria-expanded="true"'],
+  ['aria-controls="sidebar-group-operacion"'],
+  ['aria-controls="sidebar-group-dinero"'],
+  ['aria-controls="sidebar-group-flota"'],
+  ['aria-controls="sidebar-group-registros"'],
+  // Nothing starts folded: a heading nobody opened is a screen nobody finds.
+  // The bare attribute, not the substring -- the <aside> carries aria-hidden.
+  ['hidden=""', false],
+]);
+
+check("un grupo de un solo item es el item", shell, [
+  ["Panel principal"],
+  // No heading and no toggle for it -- two rows to reach one screen.
+  ['aria-controls="sidebar-group-resumen"', false],
+]);
+
+check("los enlaces siguen siendo enlaces", shell, [
+  ['href="/dashboard/owner/maintenances"'],
+  ['href="/dashboard/owner/reports"'],
+  ["Mantenimientos"],
+  ["Correos"],
+]);
+
+// El rail contraido. Se renderiza aparte porque el estado sale de localStorage,
+// que run.mjs deja devolviendo null.
+//
+// **Esto no ve el desbordamiento que motivo el arreglo.** renderToStaticMarkup
+// no calcula alturas, y el bug era justamente de alto: 996 px de rail contra 872
+// de pantalla, sin desplazamiento, derramandose sobre el pie. Lo que si fija es
+// la decision de la que sale esa altura -- contraido se muestra TODO, sin plegar
+// nada -- porque si alguien la cambia, el calculo del CSS deja de valer.
+const storage = globalThis.localStorage;
+globalThis.localStorage = {
+  getItem: (key) => (key.startsWith("dashboardSidebarCollapsed") ? "true" : null),
+  setItem: () => {},
+  removeItem: () => {},
+};
+
+const collapsedShell = withAccess(
+  ownerScreens,
+  <DashboardShell {...{ me: { name: "Ana", role: "owner_profile" }, onLogout: () => {}, theme: "light", onToggleTheme: () => {} }}>
+    <p>contenido</p>
+  </DashboardShell>
+);
+
+check("contraido no esconde ningun enlace", collapsedShell, [
+  ["dashboard-shell-collapsed"],
+  ["Panel principal"],
+  ["Mantenimientos"],
+  ["Correos"],
+  ["Mi perfil"],
+  // Nada plegado: contraido no hay encabezado que explique por que falta algo.
+  ['hidden=""', false],
+  ["sidebar-group-toggle", false],
+]);
+
+check("contraido el nombre viaja en title, que es el tooltip que queda", collapsedShell, [
+  ['title="Mantenimientos"'],
+  ['title="Cerrar sesion"'],
+  // El tooltip dibujado se fue con el CSS: dentro de un nav que se desplaza
+  // salia recortado a una astilla de 52 px.
+  ["data-tooltip", false],
+]);
+
+globalThis.localStorage = storage;
+
 console.log("\nPantallas completas");
 const shellProps = {
   me: { name: "Ana", role: "owner_profile" },
@@ -216,6 +487,46 @@ page("OwnerMaintenancesPage", OwnerMaintenancesPage, [["Generar reporte"], ["Man
 page("OwnerInventoriesPage", OwnerInventoriesPage, [["Generar reporte"], ["Inventarios"]]);
 page("OwnerReportsPage", OwnerReportsPage, [["Documentos generados"], ["Inventario por vehiculo"]]);
 page("OwnerVehiclesPage", OwnerVehiclesPage, [["Vehiculos"], ["Año"]]);
+
+console.log("\nPerfil");
+
+function profilePage(name, me, expectations) {
+  check(
+    name,
+    withAccess(ownerScreens, <ProfilePage {...shellProps} me={me} />),
+    expectations
+  );
+}
+
+const perfil = {
+  id: 1, username: "monroyan", full_name: "Andres Monroy",
+  email: "andres@example.com", role: "owner_profile", is_active: true,
+};
+
+profilePage("los tres campos editables y el cambio de contrasena", perfil, [
+  ['id="full_name"'],
+  ['id="username"'],
+  ['id="email"'],
+  ["Cambiar contrasena"],
+  ['id="password_confirm"'],
+  // El rol crudo ya no sale en pantalla: se muestra la etiqueta de la cuenta.
+  ["owner_profile", false],
+]);
+
+profilePage("sin tocar el usuario no pide la contrasena actual", perfil, [
+  // El campo aparece solo cuando el usuario o el correo cambian; en el estado de
+  // reposo pedirlo no tendria nada en pantalla que lo explique.
+  ['id="current_password"', false],
+  // El de la seccion de contrasena es otro y si esta siempre.
+  ['id="password_current"'],
+]);
+
+profilePage("una cuenta sin activar no dice que esta activa", {
+  ...perfil, full_name: null, is_active: false,
+}, [
+  // Antes decia "Activo" escrito a mano, pasara lo que pasara.
+  ["Pendiente de activar"],
+]);
 
 console.log(failures === 0 ? "\nTODO OK\n" : `\n${failures} FALLAS\n`);
 process.exit(failures === 0 ? 0 : 1);
