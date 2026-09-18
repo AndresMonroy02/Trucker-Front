@@ -8,6 +8,7 @@ import DashboardShell from "../../components/DashboardShell";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import ExpenseFormModal from "../../components/modals/ExpenseFormModal";
 import ManifestFormModal from "../../components/modals/ManifestFormModal";
+import ManifestScanReviewModal from "../../components/modals/ManifestScanReviewModal";
 import TablePagination from "../../components/TablePagination";
 import { formatDate, formatMoney, formatPercent } from "../../utils/format";
 
@@ -23,6 +24,7 @@ const EMPTY_MANIFEST_FORM = {
   vehicle_id: "",
   driver_id: "",
   status_id: "",
+  company_id: "",
   // These four travel with the rest because the PUT sends the whole object. Leave
   // one out and editing a trip blanks that column -- the update splats every key
   // it receives straight onto the row.
@@ -83,7 +85,18 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
   const [suppliers, setSuppliers] = useState([]);
   const [expenseTypes, setExpenseTypes] = useState([]);
   const [manifestStatuses, setManifestStatuses] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [manifestModalOpen, setManifestModalOpen] = useState(false);
+  // Cargar un manifiesto: el archivo se queda en memoria del navegador entre la
+  // lectura y el guardado, para previsualizarlo y para adjuntarlo despues sin
+  // pedirlo dos veces al usuario.
+  const [scanFile, setScanFile] = useState(null);
+  const [scanDraft, setScanDraft] = useState(null);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isSavingScan, setIsSavingScan] = useState(false);
+  const [isRetryingScan, setIsRetryingScan] = useState(false);
+  const scanInputRef = useRef(null);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef(null);
@@ -117,6 +130,10 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
 
   useEffect(() => {
     fetchVehicles();
+  }, []);
+
+  useEffect(() => {
+    fetchCompanies();
   }, []);
 
   useEffect(() => {
@@ -227,6 +244,17 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     }
   }
 
+  async function fetchCompanies() {
+    try {
+      const { data } = await api.get("/owner/companies", {
+        params: { page: 1, page_size: 100, status: "active" },
+      });
+      setCompanies(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible cargar las empresas."));
+    }
+  }
+
   async function fetchVehicles() {
     try {
       const { data } = await api.get("/owner/vehicles", {
@@ -271,6 +299,131 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     setManifestModalOpen(true);
   }
 
+  // ---------------------------------------------------------------------
+  // Cargar un manifiesto: leerlo, revisarlo, y solo entonces guardarlo
+  // ---------------------------------------------------------------------
+
+  /**
+   * El borrador que devolvio el lector, mapeado al formulario de siempre.
+   *
+   * Los ids resueltos entran donde el servidor encontro coincidencia; donde no,
+   * el campo queda vacio y el modal lo resalta. Nada se inventa aqui.
+   */
+  function draftToForm(draft) {
+    const read = (name) => draft[name]?.value ?? "";
+    return {
+      ...EMPTY_MANIFEST_FORM,
+      manifest_number: read("manifest_number"),
+      origin: read("origin"),
+      destination: read("destination"),
+      departure_date: read("departure_date"),
+      cargo_description: read("cargo_description"),
+      freight_value: read("freight_value"),
+      currency: draft.currency || "COP",
+      vehicle_id: draft.vehicle_id || "",
+      driver_id: draft.driver_id || "",
+      company_id: draft.company_id || "",
+      // Enlazados solo si ya tenias el lugar. Si no, el texto queda escrito y el
+      // autocompletado se encarga cuando la persona lo elija -- y a partir de
+      // ahi todo manifiesto que lo nombre coincide solo.
+      origin_place_id: draft.origin_place_id ?? null,
+      destination_place_id: draft.destination_place_id ?? null,
+      // La distancia NO se escribe en el campo: hacerlo la marcaria como puesta
+      // a mano y el servidor respetaria ese numero en vez de calcularlo. Se
+      // muestra aparte, igual que en el formulario de siempre.
+      distance_km: "",
+      distance_source: null,
+    };
+  }
+
+  async function readManifestFile(selected, { forceOcr = false } = {}) {
+    const payload = new FormData();
+    payload.append("file", selected);
+    try {
+      const { data } = await api.post("/owner/manifests/extract", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+        params: forceOcr ? { force_ocr: true } : undefined,
+      });
+      setScanDraft(data);
+      setManifestForm(draftToForm(data));
+      setEditingManifestId(null);
+      setScanModalOpen(true);
+      return true;
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible leer el manifiesto."));
+      return false;
+    }
+  }
+
+  async function handleScanFileChange(event) {
+    const [selected] = event.target.files || [];
+    // Permite volver a elegir el mismo archivo despues de cancelar.
+    event.target.value = "";
+    if (!selected) return;
+    setScanFile(selected);
+    setIsScanning(true);
+    try {
+      const ok = await readManifestFile(selected);
+      if (!ok) setScanFile(null);
+    } finally {
+      setIsScanning(false);
+    }
+  }
+
+  async function retryScanWithOcr() {
+    if (!scanFile) return;
+    setIsRetryingScan(true);
+    try {
+      await readManifestFile(scanFile, { forceOcr: true });
+    } finally {
+      setIsRetryingScan(false);
+    }
+  }
+
+  function closeScanModal() {
+    setScanModalOpen(false);
+    setScanDraft(null);
+    setScanFile(null);
+  }
+
+  /**
+   * Guardar lo revisado: crear el viaje y adjuntarle el documento.
+   *
+   * Si el adjunto falla, el manifiesto YA existe. Se deja el modal abierto y se
+   * dice lo que paso, en vez de fingir que no se guardo nada -- es el mismo
+   * manejo que hace la pantalla de Documentos.
+   */
+  async function submitScannedManifest(event) {
+    event.preventDefault();
+    setIsSavingScan(true);
+    try {
+      const created = await createManifestFromForm();
+      if (!created) return;
+      if (scanFile) {
+        const attachment = new FormData();
+        attachment.append("file", scanFile);
+        try {
+          await api.post(`/owner/manifests/${created.id}/file`, attachment, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        } catch (err) {
+          toast.error(
+            getErrorMessage(err, "El manifiesto se guardo, pero no fue posible adjuntar el documento."),
+          );
+        }
+      }
+      toast.success("Manifiesto creado correctamente.");
+      closeScanModal();
+      if (currentManifestPage !== 1) {
+        setCurrentManifestPage(1);
+      } else {
+        await fetchManifests(statusFilter, currentManifestPage);
+      }
+    } finally {
+      setIsSavingScan(false);
+    }
+  }
+
   function openEditManifestModal(manifest) {
     setManifestForm({
       manifest_number: manifest.manifest_number,
@@ -284,6 +437,7 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       vehicle_id: manifest.vehicle_id || "",
       driver_id: manifest.driver_id || "",
       status_id: manifest.status_id,
+      company_id: manifest.company_id || "",
       origin_place_id: manifest.origin_place_id ?? null,
       destination_place_id: manifest.destination_place_id ?? null,
       distance_km: manifest.distance_km ?? "",
@@ -434,10 +588,9 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
     setCurrentManifestPage(1);
   }
 
-  async function submitManifest(event) {
-    event.preventDefault();
-
-    const payload = {
+  /** El formulario, normalizado al cuerpo que espera la API. */
+  function manifestPayload() {
+    return {
       ...manifestForm,
       freight_value: manifestForm.freight_value ? Number(manifestForm.freight_value) : 0,
       arrival_date: manifestForm.arrival_date || null,
@@ -445,12 +598,35 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
       vehicle_id: manifestForm.vehicle_id ? Number(manifestForm.vehicle_id) : null,
       driver_id: manifestForm.driver_id ? Number(manifestForm.driver_id) : null,
       status_id: manifestForm.status_id ? Number(manifestForm.status_id) : null,
+      company_id: manifestForm.company_id ? Number(manifestForm.company_id) : null,
       // An empty box means "work it out", not zero. The server resolves the
       // final value either way and ignores whatever source we send.
       distance_km: manifestForm.distance_km === "" || manifestForm.distance_km === null
         ? null
         : Number(manifestForm.distance_km),
     };
+  }
+
+  /**
+   * Crea el manifiesto y devuelve lo creado, o null si fallo.
+   *
+   * Separado del submit porque el flujo de "cargar manifiesto" necesita el id
+   * para adjuntarle el documento justo despues.
+   */
+  async function createManifestFromForm() {
+    try {
+      const { data } = await api.post("/owner/manifests", manifestPayload());
+      return data;
+    } catch (err) {
+      toast.error(getErrorMessage(err, "No fue posible crear el manifiesto."));
+      return null;
+    }
+  }
+
+  async function submitManifest(event) {
+    event.preventDefault();
+
+    const payload = manifestPayload();
 
     try {
       if (editingManifestId) {
@@ -530,6 +706,23 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
           </div>
           <div className="actions-row">
             <Button onClick={openManifestModal}>Crear manifiesto</Button>
+            {/* El mismo accept que AttachmentField, para no aceptar aqui lo que
+                el bucket rechazaria despues. */}
+            <input
+              ref={scanInputRef}
+              type="file"
+              accept=".pdf,image/jpeg,image/png,image/webp,image/heic"
+              onChange={handleScanFileChange}
+              hidden
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => scanInputRef.current?.click()}
+              disabled={isScanning}
+            >
+              {isScanning ? "Leyendo manifiesto..." : "Cargar manifiesto"}
+            </Button>
           </div>
         </div>
 
@@ -739,11 +932,31 @@ export default function OwnerRoutesPage({ token, me, onLogout, theme, onToggleTh
         previewKm={previewKm}
         vehicles={vehicles}
         drivers={drivers}
+        companies={companies}
         manifestStatuses={manifestStatuses}
         onChange={handleManifestInput}
         onSubmit={submitManifest}
         onClose={closeManifestModal}
         isEditing={Boolean(editingManifestId)}
+      />
+
+      <ManifestScanReviewModal
+        isOpen={scanModalOpen}
+        file={scanFile}
+        draft={scanDraft}
+        previewKm={scanDraft?.distance_km ?? null}
+        form={manifestForm}
+        vehicles={vehicles}
+        drivers={drivers}
+        companies={companies}
+        manifestStatuses={manifestStatuses}
+        onChange={handleManifestInput}
+        onFieldChange={handleManifestField}
+        onSubmit={submitScannedManifest}
+        onClose={closeScanModal}
+        onRetryWithOcr={retryScanWithOcr}
+        isSaving={isSavingScan}
+        isRetrying={isRetryingScan}
       />
 
       <ExpenseFormModal

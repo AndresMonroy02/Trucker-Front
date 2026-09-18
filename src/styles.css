@@ -156,6 +156,15 @@ textarea {
 .field {
   display: grid;
   gap: 7px;
+  /* Las filas se quedan de su alto natural en vez de repartirse el sobrante.
+     Sin esto, dos .field que comparten una fila de .owner-inline-fields se
+     igualan en alto, y el que no lleva <p class="hint"> debajo estira su input
+     para rellenar: en el formulario de empresas, "Nombre o razon social" salia
+     con el triple de alto que los demas solo porque su vecino "NIT" tiene una
+     nota. Lo mismo pasaba en Documentos (Vence) y en el manifiesto (Valor del
+     flete). Se arregla aqui y no en cada modal, porque el desequilibrio es
+     normal -- una nota se pone donde hace falta, no por pares. */
+  align-content: start;
 }
 
 .field label {
@@ -2160,4 +2169,111 @@ button:focus-visible,
   border: 1px solid var(--c-border);
   background: var(--c-surface-soft);
   margin-bottom: 8px;
+}
+
+/* Revisar un manifiesto cargado ------------------------------------------ */
+
+/* Mas ancho que un modal normal: aqui se comparan dos cosas a la vez, y con el
+   ancho de siempre el documento queda ilegible. */
+.modal-card.manifest-scan-review {
+  width: min(1180px, 100%);
+}
+
+.manifest-scan-grid {
+  display: grid;
+  /* El documento algo mas estrecho que el formulario: se lee de un vistazo,
+     pero lo que se edita es la derecha. */
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.manifest-scan-document {
+  position: sticky;
+  /* Pegado arriba: el formulario es mas alto que el documento, y al bajar por
+     los campos el papel tiene que seguir a la vista. Es todo el objetivo de
+     poner las dos cosas juntas. */
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface-soft);
+}
+
+.manifest-scan-document img {
+  width: 100%;
+  max-height: min(66vh, 680px);
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+/* Enderezar la vista previa cuando el archivo venia girado, para que el papel y
+   los campos se lean en el mismo sentido. A un cuarto de vuelta se intercambian
+   ancho y alto, asi que el alto se limita contra la anchura del panel: sin eso
+   la imagen girada se sale de su caja. */
+.manifest-scan-document img.manifest-scan-turn-90,
+.manifest-scan-document img.manifest-scan-turn-270 {
+  max-height: min(48vh, 460px);
+}
+
+.manifest-scan-document img.manifest-scan-turn-90 { transform: rotate(90deg); }
+.manifest-scan-document img.manifest-scan-turn-180 { transform: rotate(180deg); }
+.manifest-scan-document img.manifest-scan-turn-270 { transform: rotate(270deg); }
+
+.manifest-scan-document iframe {
+  width: 100%;
+  height: min(66vh, 680px);
+  border: 0;
+  border-radius: 6px;
+  /* El visor de PDF pinta su propio fondo; el blanco evita que el escaneo
+     aparezca sobre la superficie oscura mientras carga. */
+  background: #ffffff;
+}
+
+.manifest-scan-form {
+  max-height: min(72vh, 760px);
+  overflow-y: auto;
+  /* Sitio para el foco de los inputs, que si no se recorta contra el borde. */
+  padding-right: 4px;
+}
+
+/* Lo que la maquina no leyo con seguridad. Un borde, no un fondo: el campo
+   sigue siendo un campo normal que se puede escribir, solo que pide una mirada.
+
+   Selectores descendientes y no de hijo directo: PlaceAutocomplete trae su
+   propio .field dentro, asi que en origen y destino la etiqueta y el input
+   quedan un nivel mas abajo que en un campo corriente. */
+.field-review label {
+  color: var(--c-warning-text);
+}
+
+.field-review input,
+.field-review select {
+  border-color: var(--c-warning-border);
+}
+
+@media (max-width: 900px) {
+  .manifest-scan-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* En una columna el documento va arriba y deja de ser pegajoso: si no, se
+     come la pantalla y el formulario queda debajo del pliegue. */
+  .manifest-scan-document {
+    position: static;
+  }
+
+  .manifest-scan-document img,
+  .manifest-scan-document iframe {
+    max-height: 46vh;
+    height: 46vh;
+  }
+
+  .manifest-scan-form {
+    max-height: none;
+    overflow-y: visible;
+  }
 }

@@ -60,6 +60,18 @@ export function IconSupplier(props) {
   );
 }
 
+// The generador: an office block, as distinct from IconSupplier's warehouse.
+export function IconBuilding(props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 20.5V4.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16" />
+      <path d="M14 9.5h5a1 1 0 0 1 1 1v10" />
+      <path d="M2.5 20.5h19" />
+      <path d="M7 7.5h1.5M7 11h1.5M7 14.5h1.5M11 7.5h1.5M11 11h1.5M11 14.5h1.5M17 13h1M17 16.5h1" />
+    </Svg>
+  );
+}
+
 export function IconTruck(props) {
   return (
     <Svg {...props}>

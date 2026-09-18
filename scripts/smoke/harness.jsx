@@ -15,6 +15,8 @@ import ReportPickerModal from "../../src/components/modals/ReportPickerModal";
 import PlaceAutocomplete from "../../src/components/PlaceAutocomplete";
 import RouteMap from "../../src/components/manifest/RouteMap";
 import ManifestFormModal from "../../src/components/modals/ManifestFormModal";
+import ManifestScanReviewModal from "../../src/components/modals/ManifestScanReviewModal";
+import CompanyFormModal from "../../src/components/modals/CompanyFormModal";
 import VehiclePapersOption from "../../src/components/VehiclePapersOption";
 import VehicleFormModal from "../../src/components/modals/VehicleFormModal";
 import OwnerInventoriesPage from "../../src/pages/owner/OwnerInventoriesPage";
@@ -321,6 +323,151 @@ check(
     ["application/pdf", false],
   ]
 );
+
+console.log("\nCompanyFormModal");
+check(
+  "los campos del generador, con el NIT opcional",
+  <CompanyFormModal
+    isOpen
+    form={{
+      name: "Cementos Argos SA", tax_id: "890903938", contact_name: "Marta Ruiz",
+      contact_phone: "3214209610", contact_email: "marta@argos.co",
+      city: "Barranquilla", notes: "", is_active: true,
+    }}
+    onChange={() => {}}
+    onSubmit={() => {}}
+    onClose={() => {}}
+  />,
+  [["Nombre o razon social"], ["NIT o identificacion"], ["Cementos Argos SA"], ["Empresa activa"]]
+);
+
+console.log("\nManifestScanReviewModal");
+
+// El borrador tal y como lo devuelve POST /owner/manifests/extract: la placa
+// leida sin camion que le corresponda, y el origen en blanco en el papel.
+const scanDraft = {
+  source: "ocr",
+  pages_read: 1,
+  page_number: 1,
+  manifest_number: { value: "06496", confidence: 0.96, raw_text: "06496" },
+  origin: { value: null, confidence: 0, raw_text: null },
+  destination: { value: "BARRANQUILLA (ATLANTICO)", confidence: 0.96, raw_text: "BARRANQUILLA (ATLANTICO)" },
+  departure_date: { value: "2022-11-10", confidence: 0.96, raw_text: "2022/11/10" },
+  cargo_description: { value: "PRODUCTOS PETROLEROS", confidence: 0.72, raw_text: "PRODUCTOS PETROLEROS" },
+  freight_value: { value: "10000000.00", confidence: 0.96, raw_text: "10,000,000" },
+  vehicle_plate: { value: "WGY123", confidence: 0.94, raw_text: "WGY123" },
+  driver_name: { value: "JUAN PEREZ GOMEZ", confidence: 0.91, raw_text: "JUAN PEREZ GOMEZ" },
+  driver_id_number: { value: "1077853308", confidence: 0.96, raw_text: "1077853308" },
+  company_name: { value: "CEMENTOS ARGOS SA", confidence: 0.95, raw_text: "890903938 CEMENTOS ARGOS SA" },
+  company_tax_id: { value: "890903938", confidence: 1, raw_text: "890903938 CEMENTOS ARGOS SA" },
+  currency: "COP",
+  vehicle_id: null,
+  driver_id: null,
+  company_id: null,
+  needs_review: ["origin", "vehicle_plate", "cargo_description"],
+};
+
+const scanForm = {
+  manifest_number: "06496", origin: "", destination: "BARRANQUILLA (ATLANTICO)",
+  departure_date: "2022-11-10", arrival_date: "", cargo_description: "PRODUCTOS PETROLEROS",
+  freight_value: "10000000.00", currency: "COP", vehicle_id: "", driver_id: "",
+  status_id: "", company_id: "", origin_place_id: null, destination_place_id: null,
+  distance_km: "", distance_source: null,
+};
+
+const scanModal = (overrides = {}) => (
+  <ManifestScanReviewModal
+    isOpen
+    file={{ name: "manifiesto.pdf", size: 120000, type: "application/pdf" }}
+    draft={scanDraft}
+    form={scanForm}
+    vehicles={[]}
+    drivers={[]}
+    companies={[]}
+    manifestStatuses={[{ id: 1, label: "Pendiente" }]}
+    onChange={() => {}}
+    onFieldChange={() => {}}
+    onSubmit={() => {}}
+    onClose={() => {}}
+    {...overrides}
+  />
+);
+
+check("el documento y los campos salen juntos", scanModal(), [
+  ["manifest-scan-grid"],
+  ["manifest-scan-document"],
+  ["Numero de manifiesto"],
+  ['value="06496"'],
+]);
+
+check("los campos dudosos salen resaltados", scanModal(), [
+  ["field-review"],
+  // Lo que leyo la maquina, para poder compararlo sin abrir el papel aparte.
+  ["Leimos «PRODUCTOS PETROLEROS»"],
+]);
+
+check("una placa sin camion registrado avisa en vez de inventarlo", scanModal(), [
+  ["La placa "],
+  ["WGY123"],
+  ["no esta registrada"],
+]);
+
+check("una empresa que no esta en la lista se ofrece, no se crea sola", scanModal(), [
+  ["El manifiesto nombra a "],
+  ["CEMENTOS ARGOS SA"],
+  ["NIT 890903938"],
+]);
+
+// Solo el aviso: la <img> cuelga de un object URL que se crea en un efecto, y
+// renderToStaticMarkup no ejecuta efectos. Que la imagen salga girada de verdad
+// se comprueba midiendo en un navegador, no aqui.
+check("un documento girado lo dice", scanModal({
+  file: { name: "m.jpg", size: 90000, type: "image/jpeg" },
+  draft: { ...scanDraft, rotation: 270 },
+}), [
+  ["El documento venia girado"],
+  ["270"],
+  ["aqui lo mostramos derecho"],
+]);
+
+check("la distancia del borrador se muestra, nunca dentro del input", scanModal({
+  previewKm: "414.00",
+}), [
+  ["Distancia estimada: 414.00 km"],
+  // Escribirla en el input la marcaria como puesta a mano y el servidor
+  // respetaria ese numero en vez de calcularlo.
+  ['name="distance_km" type="number" min="0" step="0.01" value="414.00"', false],
+]);
+
+check("dice de que pagina del paquete salio", scanModal({
+  draft: { ...scanDraft, source: "text_layer", pages_read: 3, page_number: 2 },
+}), [
+  ["El archivo tiene 3 paginas"],
+  ["pagina 2"],
+]);
+
+check("un documento de una sola pagina no menciona paginas", scanModal(), [
+  ["El archivo tiene", false],
+]);
+
+check("la moneda queda fija en COP y no se puede cambiar", scanModal(), [
+  ["Por ahora todos los viajes se registran en COP"],
+  ['name="currency"'],
+  ["disabled"],
+]);
+
+check("sin giro no se menciona nada", scanModal(), [
+  ["El documento venia girado", false],
+  ["manifest-scan-turn-", false],
+]);
+
+check("un PDF digital no se anuncia como una lectura dudosa", scanModal({
+  draft: { ...scanDraft, source: "text_layer", needs_review: [] },
+}), [
+  ["Leido del PDF original"],
+  ["Todos los campos se leyeron con seguridad"],
+  ["field-review", false],
+]);
 
 console.log("\nAttachmentField");
 check(
